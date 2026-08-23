@@ -17,10 +17,10 @@ export interface RetakeResponseInfo {
   position: number;
 }
 
-export interface SyncCountdownInfo {
-  targetTimestamp: number;
-  slotNumber: number;
+export interface SyncCountdownTrigger {
   duration: number;
+  slotNumber: number;
+  triggerId: string;
 }
 
 export interface UseLDRBoothReturn {
@@ -29,7 +29,7 @@ export interface UseLDRBoothReturn {
   isPartnerOnline: boolean;
   isConnected: boolean;
   isPartnerReady: boolean;
-  syncCountdown: SyncCountdownInfo | null;
+  syncTrigger: SyncCountdownTrigger | null;
   partnerFlashing: boolean;
   incomingWebRTCSignal: WebRTCSignal | null;
   jointCaptures: JointCaptureSlot[];
@@ -42,9 +42,9 @@ export interface UseLDRBoothReturn {
   broadcastEvent: (event: LDRRealtimeEvent) => void;
   sendWebRTCSignal: (signal: WebRTCSignal) => void;
   sendReadyState: (isReady: boolean) => void;
-  sendSyncCountdown: (slotNumber: number, duration?: number) => void;
-  clearSyncCountdown: () => void;
-  sendJointPhoto: (slotNumber: number, dataUrl: string, senderRole: 'host' | 'guest') => Promise<void>;
+  triggerSyncCountdown: (slotNumber: number, duration?: number) => void;
+  clearSyncTrigger: () => void;
+  recordAndSyncJointPhoto: (slotNumber: number, dataUrl: string, currentRole: LDRRole) => Promise<void>;
   sendRetakeRequest: (requesterName: string, position: number) => void;
   respondRetake: (accepted: boolean, position: number) => void;
   clearRetakeStates: () => void;
@@ -73,7 +73,7 @@ export function useLDRBooth(): UseLDRBoothReturn {
   const [isPartnerOnline, setIsPartnerOnline] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isPartnerReady, setIsPartnerReady] = useState(false);
-  const [syncCountdown, setSyncCountdown] = useState<SyncCountdownInfo | null>(null);
+  const [syncTrigger, setSyncTrigger] = useState<SyncCountdownTrigger | null>(null);
   const [partnerFlashing, setPartnerFlashing] = useState(false);
   const [incomingWebRTCSignal, setIncomingWebRTCSignal] = useState<WebRTCSignal | null>(null);
   const [jointCaptures, setJointCaptures] = useState<JointCaptureSlot[]>(INITIAL_SLOTS);
@@ -114,58 +114,102 @@ export function useLDRBooth(): UseLDRBoothReturn {
     [broadcastEvent]
   );
 
-  const sendSyncCountdown = useCallback(
+  const triggerSyncCountdown = useCallback(
     (slotNumber: number, duration: number = 3) => {
-      const targetTimestamp = Date.now() + duration * 1000 + 200;
-      const info: SyncCountdownInfo = { targetTimestamp, slotNumber, duration };
-      setSyncCountdown(info);
+      const triggerId = nanoid();
+      const trigger: SyncCountdownTrigger = { duration, slotNumber, triggerId };
+      setSyncTrigger(trigger);
       broadcastEvent({
         type: 'START_SYNC_COUNTDOWN',
-        payload: { targetTimestamp, slotNumber, duration },
+        payload: { duration, slotNumber, triggerId },
       });
     },
     [broadcastEvent]
   );
 
-  const clearSyncCountdown = useCallback(() => {
-    setSyncCountdown(null);
+  const clearSyncTrigger = useCallback(() => {
+    setSyncTrigger(null);
   }, []);
 
-  const sendJointPhoto = useCallback(
-    async (slotNumber: number, dataUrl: string, senderRole: 'host' | 'guest') => {
+  const updateCompositeForSlot = useCallback(
+    async (slotNumber: number, hostPhoto: string | null, guestPhoto: string | null) => {
+      if (!hostPhoto || !guestPhoto) return;
+      const comp = await createSideBySideComposite(
+        hostPhoto,
+        guestPhoto,
+        session?.hostName || 'Host',
+        session?.guestName || 'Partner'
+      );
+      setJointCaptures((prev) => {
+        const next = [...prev];
+        const idx = slotNumber - 1;
+        if (idx >= 0 && idx < next.length) {
+          next[idx] = { ...next[idx], compositePhoto: comp };
+        }
+        return next;
+      });
+    },
+    [session?.hostName, session?.guestName]
+  );
+
+  const recordAndSyncJointPhoto = useCallback(
+    async (slotNumber: number, dataUrl: string, currentRole: LDRRole) => {
+      // 1. Broadcast to partner immediately for zero-latency UI update
       broadcastEvent({
         type: 'JOINT_PHOTO_UPLOADED',
-        payload: { slotNumber, dataUrl, senderRole },
+        payload: { slotNumber, dataUrl, senderRole: currentRole },
       });
 
+      // 2. Update local state
+      let updatedSlot: JointCaptureSlot | null = null;
       setJointCaptures((prev) => {
         const next = [...prev];
         const idx = slotNumber - 1;
         if (idx >= 0 && idx < next.length) {
           const slot = { ...next[idx] };
-          if (senderRole === 'host') slot.hostPhoto = dataUrl;
+          if (currentRole === 'host') slot.hostPhoto = dataUrl;
           else slot.guestPhoto = dataUrl;
-
-          if (slot.hostPhoto && slot.guestPhoto) {
-            createSideBySideComposite(
-              slot.hostPhoto,
-              slot.guestPhoto,
-              session?.hostName || 'Host',
-              session?.guestName || 'Partner'
-            ).then((comp) => {
-              setJointCaptures((p) => {
-                const u = [...p];
-                u[idx] = { ...u[idx], compositePhoto: comp };
-                return u;
-              });
-            });
-          }
           next[idx] = slot;
+          updatedSlot = slot;
         }
         return next;
       });
+
+      if (updatedSlot) {
+        updateCompositeForSlot(slotNumber, (updatedSlot as JointCaptureSlot).hostPhoto, (updatedSlot as JointCaptureSlot).guestPhoto);
+      }
+
+      // 3. Upsert to Supabase joint_captures table
+      if (hasSupabaseConfig && session?.id) {
+        try {
+          const updateField = currentRole === 'host' ? 'host_photo_url' : 'guest_photo_url';
+          const { data: existing } = await supabase
+            .from('joint_captures')
+            .select('*')
+            .eq('booth_id', session.id)
+            .eq('slot_number', slotNumber)
+            .maybeSingle();
+
+          if (existing) {
+            await supabase
+              .from('joint_captures')
+              .update({ [updateField]: dataUrl })
+              .eq('id', existing.id);
+          } else {
+            await supabase
+              .from('joint_captures')
+              .insert({
+                booth_id: session.id,
+                slot_number: slotNumber,
+                [updateField]: dataUrl,
+              });
+          }
+        } catch (err) {
+          console.warn('Supabase joint_captures write error:', err);
+        }
+      }
     },
-    [broadcastEvent, session?.hostName, session?.guestName]
+    [broadcastEvent, session?.id, updateCompositeForSlot]
   );
 
   const sendRetakeRequest = useCallback(
@@ -193,10 +237,20 @@ export function useLDRBooth(): UseLDRBoothReturn {
           }
           return next;
         });
+
+        // Clear in database
+        if (hasSupabaseConfig && session?.id) {
+          supabase
+            .from('joint_captures')
+            .delete()
+            .eq('booth_id', session.id)
+            .eq('slot_number', position)
+            .then(() => {});
+        }
       }
       setRetakeRequest(null);
     },
-    [broadcastEvent]
+    [broadcastEvent, session?.id]
   );
 
   const clearRetakeStates = useCallback(() => {
@@ -211,22 +265,8 @@ export function useLDRBooth(): UseLDRBoothReturn {
         if (prev.photos.some((p) => p.id === photo.id)) return prev;
         return { ...prev, photos: [...prev.photos, photo] };
       });
-
-      if (hasSupabaseConfig && session?.id) {
-        try {
-          await supabase.from('photos').insert({
-            booth_id: session.id,
-            taker_name: photo.takerName,
-            image_url: photo.dataUrl,
-            filter: photo.filter,
-            position: photo.position,
-          });
-        } catch (err) {
-          console.warn('Could not save photo to Supabase:', err);
-        }
-      }
     },
-    [session?.id]
+    []
   );
 
   const clearSessionPhotos = useCallback(async () => {
@@ -241,6 +281,7 @@ export function useLDRBooth(): UseLDRBoothReturn {
     }
     if (hasSupabaseConfig && session?.id) {
       try {
+        await supabase.from('joint_captures').delete().eq('booth_id', session.id);
         await supabase.from('photos').delete().eq('booth_id', session.id);
       } catch (err) {
         console.warn('Could not delete photos from Supabase:', err);
@@ -322,21 +363,22 @@ export function useLDRBooth(): UseLDRBoothReturn {
         })
         .on('broadcast', { event: 'START_SYNC_COUNTDOWN' }, ({ payload }) => {
           setIsPartnerOnline(true);
-          if (payload?.targetTimestamp && payload?.slotNumber) {
-            setSyncCountdown({
-              targetTimestamp: payload.targetTimestamp as number,
-              slotNumber: payload.slotNumber as number,
+          if (payload?.slotNumber) {
+            setSyncTrigger({
               duration: (payload.duration as number) || 3,
+              slotNumber: payload.slotNumber as number,
+              triggerId: (payload.triggerId as string) || nanoid(),
             });
           }
         })
-        .on('broadcast', { event: 'JOINT_PHOTO_UPLOADED' }, ({ payload }) => {
+        .on('broadcast', { event: 'JOINT_PHOTO_UPLOADED' }, async ({ payload }) => {
           setIsPartnerOnline(true);
           if (payload?.slotNumber && payload?.dataUrl && payload?.senderRole) {
             const sNum = payload.slotNumber as number;
             const sRole = payload.senderRole as 'host' | 'guest';
             const sData = payload.dataUrl as string;
 
+            let updatedSlot: JointCaptureSlot | null = null;
             setJointCaptures((prev) => {
               const next = [...prev];
               const idx = sNum - 1;
@@ -344,25 +386,31 @@ export function useLDRBooth(): UseLDRBoothReturn {
                 const slot = { ...next[idx] };
                 if (sRole === 'host') slot.hostPhoto = sData;
                 else slot.guestPhoto = sData;
-
-                if (slot.hostPhoto && slot.guestPhoto) {
-                  createSideBySideComposite(
-                    slot.hostPhoto,
-                    slot.guestPhoto,
-                    sessionData.hostName || 'Host',
-                    sessionData.guestName || 'Partner'
-                  ).then((comp) => {
-                    setJointCaptures((p) => {
-                      const u = [...p];
-                      u[idx] = { ...u[idx], compositePhoto: comp };
-                      return u;
-                    });
-                  });
-                }
                 next[idx] = slot;
+                updatedSlot = slot;
               }
               return next;
             });
+
+            if (updatedSlot) {
+              const s = updatedSlot as JointCaptureSlot;
+              if (s.hostPhoto && s.guestPhoto) {
+                const comp = await createSideBySideComposite(
+                  s.hostPhoto,
+                  s.guestPhoto,
+                  sessionData.hostName || 'Host',
+                  sessionData.guestName || 'Partner'
+                );
+                setJointCaptures((prev) => {
+                  const next = [...prev];
+                  const idx = sNum - 1;
+                  if (idx >= 0 && idx < next.length) {
+                    next[idx] = { ...next[idx], compositePhoto: comp };
+                  }
+                  return next;
+                });
+              }
+            }
           }
         })
         .on('broadcast', { event: 'RETAKE_REQUEST' }, ({ payload }) => {
@@ -393,12 +441,6 @@ export function useLDRBooth(): UseLDRBoothReturn {
             }
           }
         })
-        .on('broadcast', { event: 'PHOTO_TAKEN' }, ({ payload }) => {
-          setIsPartnerOnline(true);
-          if (payload?.photo) {
-            addPhoto(payload.photo as CapturedPhoto);
-          }
-        })
         .on('broadcast', { event: 'FLASH' }, () => {
           setIsPartnerOnline(true);
           setPartnerFlashing(true);
@@ -407,9 +449,6 @@ export function useLDRBooth(): UseLDRBoothReturn {
         .on('broadcast', { event: 'CLEAR_PHOTOS' }, () => {
           setSession((prev) => (prev ? { ...prev, photos: [] } : prev));
           setJointCaptures(INITIAL_SLOTS);
-        })
-        .on('broadcast', { event: 'STRIP_READY' }, () => {
-          setSession((prev) => (prev ? { ...prev, status: 'done' } : prev));
         })
         .subscribe(async (status) => {
           if (status === 'SUBSCRIBED') {
@@ -420,7 +459,6 @@ export function useLDRBooth(): UseLDRBoothReturn {
               online_at: new Date().toISOString(),
             });
 
-            // Announce presence immediately via broadcast
             channel.send({
               type: 'broadcast',
               event: 'PARTNER_JOINED',
@@ -431,7 +469,7 @@ export function useLDRBooth(): UseLDRBoothReturn {
 
       channelRef.current = channel;
     },
-    [addPhoto]
+    []
   );
 
   const connectToBooth = useCallback(
@@ -482,6 +520,44 @@ export function useLDRBooth(): UseLDRBoothReturn {
       setSession(foundSession);
       setRole(currentRole);
       setupChannel(normalizedCode, currentRole, currentUserName, foundSession);
+
+      // Load any existing joint captures from DB
+      if (hasSupabaseConfig && foundSession.id) {
+        supabase
+          .from('joint_captures')
+          .select('*')
+          .eq('booth_id', foundSession.id)
+          .then(({ data: captures }) => {
+            if (captures && captures.length > 0) {
+              setJointCaptures((prev) => {
+                const next = [...prev];
+                captures.forEach((c) => {
+                  const idx = c.slot_number - 1;
+                  if (idx >= 0 && idx < next.length) {
+                    next[idx] = {
+                      slotNumber: c.slot_number,
+                      hostPhoto: c.host_photo_url,
+                      guestPhoto: c.guest_photo_url,
+                      compositePhoto: null,
+                    };
+                    if (c.host_photo_url && c.guest_photo_url) {
+                      createSideBySideComposite(c.host_photo_url, c.guest_photo_url, foundSession?.hostName || 'Host', foundSession?.guestName || 'Partner')
+                        .then((comp) => {
+                          setJointCaptures((p) => {
+                            const u = [...p];
+                            u[idx] = { ...u[idx], compositePhoto: comp };
+                            return u;
+                          });
+                        });
+                    }
+                  }
+                });
+                return next;
+              });
+            }
+          });
+      }
+
       return true;
     },
     [setupChannel]
@@ -544,7 +620,7 @@ export function useLDRBooth(): UseLDRBoothReturn {
     setIsPartnerOnline(false);
     setIsConnected(false);
     setIsPartnerReady(false);
-    setSyncCountdown(null);
+    setSyncTrigger(null);
     setJointCaptures(INITIAL_SLOTS);
     setRetakeRequest(null);
     setRetakeResponse(null);
@@ -564,7 +640,7 @@ export function useLDRBooth(): UseLDRBoothReturn {
     isPartnerOnline,
     isConnected,
     isPartnerReady,
-    syncCountdown,
+    syncTrigger,
     partnerFlashing,
     incomingWebRTCSignal,
     jointCaptures,
@@ -577,9 +653,9 @@ export function useLDRBooth(): UseLDRBoothReturn {
     broadcastEvent,
     sendWebRTCSignal,
     sendReadyState,
-    sendSyncCountdown,
-    clearSyncCountdown,
-    sendJointPhoto,
+    triggerSyncCountdown,
+    clearSyncTrigger,
+    recordAndSyncJointPhoto,
     sendRetakeRequest,
     respondRetake,
     clearRetakeStates,

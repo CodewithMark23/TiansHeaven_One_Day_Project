@@ -18,6 +18,7 @@ import PhotoStrip from '../components/PhotoStrip/PhotoStrip';
 import QRCodeCard from '../components/QR/QRCodeCard';
 import { saveMemory } from '../lib/memory';
 import { captureFrame } from '../lib/camera';
+import { createSideBySideComposite } from '../lib/ldrComposite';
 import { nanoid } from 'nanoid';
 
 const MAX_PHOTOS = 4;
@@ -33,12 +34,13 @@ export default function LDRBoothPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as LocationState | null;
+
   const [userName, setUserName] = useState(state?.userName || '');
   const [nameEntered, setNameEntered] = useState(!!state?.userName);
   const role = state?.role ?? (state?.userName ? 'host' : 'guest');
 
   const camera = useCamera();
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const {
     session,
@@ -46,10 +48,10 @@ export default function LDRBoothPage() {
     sendWebRTCSignal,
     incomingWebRTCSignal,
     sendReadyState,
-    sendSyncCountdown,
-    clearSyncCountdown,
-    syncCountdown,
-    sendJointPhoto,
+    triggerSyncCountdown,
+    clearSyncTrigger,
+    syncTrigger,
+    recordAndSyncJointPhoto,
     jointCaptures,
     sendRetakeRequest,
     respondRetake,
@@ -76,11 +78,22 @@ export default function LDRBoothPage() {
   });
 
   // Attach remote stream to partner video element
+  const attachRemoteStream = (videoEl: HTMLVideoElement | null) => {
+    remoteVideoRef.current = videoEl;
+    if (videoEl && remoteStream) {
+      if (videoEl.srcObject !== remoteStream) {
+        console.log('[LDRBoothPage] Attaching remoteStream to video element');
+        videoEl.srcObject = remoteStream;
+      }
+      videoEl.play().catch((err) => console.warn('[LDRBoothPage] Auto-play video warning:', err));
+    }
+  };
+
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.srcObject = remoteStream;
+      attachRemoteStream(remoteVideoRef.current);
     }
-  }, [remoteStream]);
+  }, [remoteStream, webrtcState]);
 
   // Forward incoming WebRTC signals
   useEffect(() => {
@@ -93,89 +106,112 @@ export default function LDRBoothPage() {
   const [, setStickers] = useState<Sticker[]>([]);
   const [activeTab, setActiveTab] = useState<'filters' | 'stickers'>('filters');
   const [isMyReady, setIsMyReady] = useState(false);
-  const [localCountdown, setLocalCountdown] = useState<number | null>(null);
+  const [displayCountdown, setDisplayCountdown] = useState<number | null>(null);
   const [isFlashing, setIsFlashing] = useState(false);
   const [retakeNotification, setRetakeNotification] = useState<string | null>(null);
+  const [compositePreviews, setCompositePreviews] = useState<(string | null)[]>([null, null, null, null]);
 
   // QR Code & Memory URL state
   const [memoryUrl, setMemoryUrl] = useState<string>('');
   const [isGeneratingMemory, setIsGeneratingMemory] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
 
-  // Connect to the Supabase Realtime channel on mount
+  // Connect on mount
   useEffect(() => {
-    if (code) {
+    if (code && nameEntered && userName) {
       connectToBooth(code, role, userName);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, role, userName]);
-
-  // Compute completed joint photo slots
-  const completedSlots = jointCaptures.filter((s) => s.compositePhoto !== null);
-  const nextSlotNumber = Math.min(MAX_PHOTOS, jointCaptures.findIndex((s) => !s.hostPhoto || !s.guestPhoto) + 1 || 1);
-  const isStripComplete = completedSlots.length >= MAX_PHOTOS;
+  }, [code, role, nameEntered, userName]);
 
   const partnerName =
     role === 'host'
       ? session?.guestName ?? 'Partner'
       : session?.hostName ?? 'Partner';
 
-  // ── Synchronized Countdown Logic Driven by Target Timestamp ──────────────
-  const isSnappingRef = useRef(false);
+  // Compute composite previews (including pending half placeholders)
+  useEffect(() => {
+    const generateAllPreviews = async () => {
+      const previews = await Promise.all(
+        jointCaptures.map(async (slot) => {
+          if (slot.compositePhoto) return slot.compositePhoto;
+          if (slot.hostPhoto || slot.guestPhoto) {
+            return await createSideBySideComposite(
+              slot.hostPhoto,
+              slot.guestPhoto,
+              session?.hostName || 'Host',
+              session?.guestName || 'Partner'
+            );
+          }
+          return null;
+        })
+      );
+      setCompositePreviews(previews);
+    };
+    generateAllPreviews();
+  }, [jointCaptures, session?.hostName, session?.guestName]);
+
+  const completedSlots = jointCaptures.filter((s) => s.compositePhoto !== null);
+  const nextSlotNumber = Math.min(MAX_PHOTOS, jointCaptures.findIndex((s) => !s.hostPhoto || !s.guestPhoto) + 1 || 1);
+  const isStripComplete = completedSlots.length >= MAX_PHOTOS;
+
+  // ── Synchronized Countdown Logic (Zero Client Clock Skew) ───────────────
+  const activeTriggerIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!syncCountdown) return;
+    if (!syncTrigger) return;
+    if (activeTriggerIdRef.current === syncTrigger.triggerId) return;
 
-    const { targetTimestamp, slotNumber } = syncCountdown;
-    isSnappingRef.current = false;
+    activeTriggerIdRef.current = syncTrigger.triggerId;
+    const { duration, slotNumber } = syncTrigger;
+
+    let current = duration;
+    setDisplayCountdown(current);
 
     const interval = setInterval(async () => {
-      const remainingMs = targetTimestamp - Date.now();
-      const remainingSec = Math.ceil(remainingMs / 1000);
-
-      if (remainingSec > 0) {
-        setLocalCountdown(remainingSec);
-      } else if (!isSnappingRef.current) {
-        // EXACT MOMENT OF CAPTURE
-        isSnappingRef.current = true;
-        setLocalCountdown(null);
-        clearSyncCountdown();
+      current -= 1;
+      if (current > 0) {
+        setDisplayCountdown(current);
+      } else {
+        // EXACT MOMENT OF CAPTURE (t=0)
         clearInterval(interval);
+        setDisplayCountdown(null);
+        clearSyncTrigger();
 
-        // Flash
+        // Flash screen
         setIsFlashing(true);
         setTimeout(() => setIsFlashing(false), 500);
 
         // Local high-res capture from device's own webcam
         if (camera.videoRef.current) {
           const myDataUrl = captureFrame(camera.videoRef.current, filter, true);
-          await sendJointPhoto(slotNumber, myDataUrl, role);
+          await recordAndSyncJointPhoto(slotNumber, myDataUrl, role);
         }
 
         setIsMyReady(false);
         sendReadyState(false);
       }
-    }, 50);
+    }, 1000);
 
     return () => clearInterval(interval);
-  }, [syncCountdown, camera.videoRef, filter, role, sendJointPhoto, clearSyncCountdown, sendReadyState]);
+  }, [syncTrigger, camera.videoRef, filter, role, recordAndSyncJointPhoto, clearSyncTrigger, sendReadyState]);
 
-  // Handle Ready Toggle & Trigger Countdown when both ready
+  // Handle Ready Toggle
   const handleToggleReady = () => {
     const next = !isMyReady;
     setIsMyReady(next);
     sendReadyState(next);
 
-    // If partner is already ready and we click ready -> initiate synchronized countdown for next slot!
-    if (next && isPartnerReady && !isStripComplete) {
-      sendSyncCountdown(nextSlotNumber, 3);
+    // If partner is already ready, trigger the synchronized countdown
+    if (next && isPartnerReady && !isStripComplete && displayCountdown === null) {
+      triggerSyncCountdown(nextSlotNumber, 3);
     }
   };
 
   // Manual Trigger
   const handleManualTrigger = () => {
-    if (isStripComplete) return;
-    sendSyncCountdown(nextSlotNumber, 3);
+    if (isStripComplete || displayCountdown !== null) return;
+    triggerSyncCountdown(nextSlotNumber, 3);
   };
 
   // Listen for retake responses
@@ -238,15 +274,15 @@ export default function LDRBoothPage() {
     }
   };
 
-  // Convert jointCaptures into CapturedPhoto array for PhotoStrip component
-  const stripPhotos: CapturedPhoto[] = jointCaptures
-    .filter((s) => s.compositePhoto !== null)
-    .map((s) => ({
-      id: `slot_${s.slotNumber}`,
-      dataUrl: s.compositePhoto!,
+  // Convert composite previews into CapturedPhoto objects for PhotoStrip
+  const stripPhotos: CapturedPhoto[] = compositePreviews
+    .filter((url): url is string => url !== null)
+    .map((dataUrl, idx) => ({
+      id: `slot_${idx + 1}`,
+      dataUrl,
       filter: 'original',
       takerName: `${userName} & ${partnerName}`,
-      position: s.slotNumber,
+      position: idx + 1,
       timestamp: Date.now(),
     }));
 
@@ -441,9 +477,9 @@ export default function LDRBoothPage() {
                     isFlashing={isFlashing}
                     className="w-full h-full object-cover"
                   />
-                  {localCountdown !== null && (
+                  {displayCountdown !== null && (
                     <div className="absolute inset-0 z-50 rounded-2xl">
-                      <CountdownTimer count={localCountdown} isVisible={localCountdown !== null} />
+                      <CountdownTimer count={displayCountdown} isVisible={displayCountdown !== null} />
                     </div>
                   )}
                 </div>
@@ -454,7 +490,7 @@ export default function LDRBoothPage() {
                 <div className="flex items-center justify-between px-1">
                   <span className="text-xs font-bold text-purple-500 uppercase tracking-wider flex items-center gap-1">
                     💕 {partnerName}
-                    {webrtcState === 'connected' ? (
+                    {remoteStream && webrtcState === 'connected' ? (
                       <Video className="w-3 h-3 text-green-500" />
                     ) : (
                       <VideoOff className="w-3 h-3 text-gray-400" />
@@ -477,50 +513,54 @@ export default function LDRBoothPage() {
                     <div className="absolute inset-0 bg-white z-30 animate-pulse" />
                   )}
 
-                  {/* WebRTC Live Video Stream */}
-                  {remoteStream && webrtcState === 'connected' ? (
-                    <video
-                      ref={remoteVideoRef}
-                      autoPlay
-                      playsInline
-                      className="w-full h-full object-cover"
-                      style={{ transform: 'scaleX(-1)' }}
-                    />
-                  ) : isPartnerOnline ? (
-                    /* Fallback Avatar when WebRTC is connecting */
-                    <div className="flex flex-col items-center gap-3 p-4 text-white">
-                      <motion.div
-                        animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
-                        transition={{ duration: 2.5, repeat: Infinity }}
-                        className="w-16 h-16 rounded-full bg-gradient-to-tr from-pink-300 to-purple-300 flex items-center justify-center text-3xl shadow-md border-2 border-white"
-                      >
-                        🌸
-                      </motion.div>
-                      <div>
-                        <p className="font-display text-base text-pink-300">
-                          {isPartnerReady ? '♡ Partner is ready!' : 'Connecting video feed…'}
-                        </p>
-                        <p className="text-[11px] text-gray-300 mt-0.5">
-                          {isPartnerReady ? 'Press Ready to countdown!' : 'Real-time sync active ✨'}
-                        </p>
+                  {/* WebRTC Live Video Element (Always in DOM with ref attachment) */}
+                  <video
+                    ref={attachRemoteStream}
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-cover"
+                    style={{
+                      transform: 'scaleX(-1)',
+                      display: remoteStream && webrtcState === 'connected' ? 'block' : 'none',
+                    }}
+                  />
+
+                  {/* Fallback View when WebRTC is not yet connected */}
+                  {(!remoteStream || webrtcState !== 'connected') && (
+                    isPartnerOnline ? (
+                      <div className="flex flex-col items-center gap-3 p-4 text-white">
+                        <motion.div
+                          animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
+                          transition={{ duration: 2.5, repeat: Infinity }}
+                          className="w-16 h-16 rounded-full bg-gradient-to-tr from-pink-300 to-purple-300 flex items-center justify-center text-3xl shadow-md border-2 border-white"
+                        >
+                          🌸
+                        </motion.div>
+                        <div>
+                          <p className="font-display text-base text-pink-300">
+                            {isPartnerReady ? '♡ Partner is ready!' : 'Connecting video stream…'}
+                          </p>
+                          <p className="text-[11px] text-gray-300 mt-0.5">
+                            {isPartnerReady ? 'Press Ready to countdown!' : 'Syncing with partner ✨'}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    /* Offline State */
-                    <div className="flex flex-col items-center gap-2 text-gray-400 p-4">
-                      <span className="text-3xl">💌</span>
-                      <p className="text-xs font-medium text-purple-300">
-                        Waiting for {partnerName} to join:
-                      </p>
-                      <span className="font-display text-lg text-pink-400 tracking-wider">
-                        {code}
-                      </span>
-                    </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 text-gray-400 p-4">
+                        <span className="text-3xl">💌</span>
+                        <p className="text-xs font-medium text-purple-300">
+                          Waiting for {partnerName} to join:
+                        </p>
+                        <span className="font-display text-lg text-pink-400 tracking-wider">
+                          {code}
+                        </span>
+                      </div>
+                    )
                   )}
 
-                  {localCountdown !== null && (
+                  {displayCountdown !== null && (
                     <div className="absolute inset-0 z-50 rounded-2xl">
-                      <CountdownTimer count={localCountdown} isVisible={localCountdown !== null} />
+                      <CountdownTimer count={displayCountdown} isVisible={displayCountdown !== null} />
                     </div>
                   )}
                 </div>
@@ -534,7 +574,7 @@ export default function LDRBoothPage() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleToggleReady}
-                  disabled={!camera.isReady || isStripComplete || localCountdown !== null}
+                  disabled={!camera.isReady || isStripComplete || displayCountdown !== null}
                   className={`btn-snappy py-2 px-5 text-sm ${
                     isMyReady ? 'btn-snappy-mint' : ''
                   }`}
@@ -550,7 +590,7 @@ export default function LDRBoothPage() {
 
               <CaptureButton
                 onClick={handleManualTrigger}
-                disabled={!camera.isReady || isStripComplete || localCountdown !== null}
+                disabled={!camera.isReady || isStripComplete || displayCountdown !== null}
                 photosLeft={Math.max(0, MAX_PHOTOS - completedSlots.length)}
               />
             </div>

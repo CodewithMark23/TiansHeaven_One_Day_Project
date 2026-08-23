@@ -38,7 +38,8 @@ CREATE TABLE IF NOT EXISTS joint_captures (
   host_photo_url  TEXT,
   guest_photo_url TEXT,
   composite_url   TEXT,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT joint_captures_booth_slot_unique UNIQUE (booth_id, slot_number)
 );
 
 CREATE INDEX IF NOT EXISTS joint_captures_booth_id_idx ON joint_captures (booth_id);
