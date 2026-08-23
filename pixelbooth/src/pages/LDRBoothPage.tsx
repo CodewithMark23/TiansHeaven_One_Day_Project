@@ -47,6 +47,7 @@ export default function LDRBoothPage() {
     connectToBooth,
     sendWebRTCSignal,
     incomingWebRTCSignal,
+    registerWebRTCSignalListener,
     sendReadyState,
     triggerSyncCountdown,
     clearSyncTrigger,
@@ -70,12 +71,21 @@ export default function LDRBoothPage() {
     remoteStream,
     connectionState: webrtcState,
     handleIncomingSignal,
+    restartConnection,
   } = useWebRTC({
     localStream: camera.stream,
     role,
     isPartnerOnline,
     onSendSignal: sendWebRTCSignal,
   });
+
+  // Wire direct signal listener bypassing React state batching
+  useEffect(() => {
+    registerWebRTCSignalListener(handleIncomingSignal);
+    return () => {
+      registerWebRTCSignalListener(null);
+    };
+  }, [registerWebRTCSignalListener, handleIncomingSignal]);
 
   // Attach remote stream to partner video element
   const attachRemoteStream = (videoEl: HTMLVideoElement | null) => {
@@ -95,7 +105,7 @@ export default function LDRBoothPage() {
     }
   }, [remoteStream, webrtcState]);
 
-  // Forward incoming WebRTC signals
+  // Fallback for state-based incoming signals
   useEffect(() => {
     if (incomingWebRTCSignal) {
       handleIncomingSignal(incomingWebRTCSignal);
@@ -528,23 +538,41 @@ export default function LDRBoothPage() {
                   {/* Fallback View when WebRTC is not yet connected */}
                   {(!remoteStream || webrtcState !== 'connected') && (
                     isPartnerOnline ? (
-                      <div className="flex flex-col items-center gap-3 p-4 text-white">
-                        <motion.div
-                          animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
-                          transition={{ duration: 2.5, repeat: Infinity }}
-                          className="w-16 h-16 rounded-full bg-gradient-to-tr from-pink-300 to-purple-300 flex items-center justify-center text-3xl shadow-md border-2 border-white"
-                        >
-                          🌸
-                        </motion.div>
-                        <div>
-                          <p className="font-display text-base text-pink-300">
-                            {isPartnerReady ? '♡ Partner is ready!' : 'Connecting video stream…'}
+                      webrtcState === 'failed' ? (
+                        <div className="flex flex-col items-center gap-2 p-4 text-center text-white">
+                          <span className="text-3xl">⚠️</span>
+                          <p className="font-display text-sm text-pink-300">
+                            Connection failed
                           </p>
-                          <p className="text-[11px] text-gray-300 mt-0.5">
-                            {isPartnerReady ? 'Press Ready to countdown!' : 'Syncing with partner ✨'}
+                          <p className="text-[11px] text-gray-300">
+                            Check network or strict firewall
                           </p>
+                          <button
+                            onClick={restartConnection}
+                            className="btn-snappy py-1.5 px-4 text-xs mt-2"
+                          >
+                            Retry Video 🔄
+                          </button>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-3 p-4 text-white">
+                          <motion.div
+                            animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
+                            transition={{ duration: 2.5, repeat: Infinity }}
+                            className="w-16 h-16 rounded-full bg-gradient-to-tr from-pink-300 to-purple-300 flex items-center justify-center text-3xl shadow-md border-2 border-white"
+                          >
+                            🌸
+                          </motion.div>
+                          <div>
+                            <p className="font-display text-base text-pink-300">
+                              {isPartnerReady ? '♡ Partner is ready!' : 'Connecting video stream…'}
+                            </p>
+                            <p className="text-[11px] text-gray-300 mt-0.5">
+                              {isPartnerReady ? 'Press Ready to countdown!' : 'Syncing with partner ✨'}
+                            </p>
+                          </div>
+                        </div>
+                      )
                     ) : (
                       <div className="flex flex-col items-center gap-2 text-gray-400 p-4">
                         <span className="text-3xl">💌</span>

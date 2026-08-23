@@ -32,6 +32,7 @@ export interface UseLDRBoothReturn {
   syncTrigger: SyncCountdownTrigger | null;
   partnerFlashing: boolean;
   incomingWebRTCSignal: WebRTCSignal | null;
+  registerWebRTCSignalListener: (cb: ((signal: WebRTCSignal) => void) | null) => void;
   jointCaptures: JointCaptureSlot[];
   retakeRequest: RetakeRequestInfo | null;
   retakeResponse: RetakeResponseInfo | null;
@@ -81,6 +82,11 @@ export function useLDRBooth(): UseLDRBoothReturn {
   const [retakeResponse, setRetakeResponse] = useState<RetakeResponseInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const signalListenerRef = useRef<((signal: WebRTCSignal) => void) | null>(null);
+
+  const registerWebRTCSignalListener = useCallback((cb: ((signal: WebRTCSignal) => void) | null) => {
+    signalListenerRef.current = cb;
+  }, []);
 
   const broadcastEvent = useCallback(
     (event: LDRRealtimeEvent) => {
@@ -354,7 +360,12 @@ export function useLDRBooth(): UseLDRBoothReturn {
         .on('broadcast', { event: 'WEBRTC_SIGNAL' }, ({ payload }) => {
           setIsPartnerOnline(true);
           if (payload?.signal) {
-            setIncomingWebRTCSignal(payload.signal as WebRTCSignal);
+            const sig = payload.signal as WebRTCSignal;
+            console.log('[useLDRBooth] Realtime received WEBRTC_SIGNAL:', sig.type, 'from:', sig.senderRole);
+            setIncomingWebRTCSignal(sig);
+            if (signalListenerRef.current) {
+              signalListenerRef.current(sig);
+            }
           }
         })
         .on('broadcast', { event: 'READY_CHANGE' }, ({ payload }) => {
@@ -643,6 +654,7 @@ export function useLDRBooth(): UseLDRBoothReturn {
     syncTrigger,
     partnerFlashing,
     incomingWebRTCSignal,
+    registerWebRTCSignalListener,
     jointCaptures,
     retakeRequest,
     retakeResponse,
