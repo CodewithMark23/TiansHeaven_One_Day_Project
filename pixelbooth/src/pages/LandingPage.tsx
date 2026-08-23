@@ -1,83 +1,85 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, type Variants } from 'framer-motion';
-import { Camera, Heart, Sparkles, ArrowRight } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { ArrowRight, Heart, Sparkles } from 'lucide-react';
 
-const DECORATIVE_EMOJIS = [
-  { emoji: '🌸', x: '8%', y: '15%', delay: 0 },
-  { emoji: '✨', x: '85%', y: '10%', delay: 0.2 },
-  { emoji: '💕', x: '92%', y: '40%', delay: 0.4 },
-  { emoji: '🌷', x: '5%', y: '55%', delay: 0.6 },
-  { emoji: '🎀', x: '90%', y: '70%', delay: 0.8 },
-  { emoji: '🦋', x: '10%', y: '80%', delay: 1.0 },
-  { emoji: '💫', x: '80%', y: '85%', delay: 0.3 },
-  { emoji: '🌙', x: '15%', y: '30%', delay: 0.7 },
+const TICKER = '✨ make memories  💕 capture moments  🌸 feel the love  📸 snap snap snap  🎀 cute moments  ';
+
+const FLOATERS = [
+  { emoji: '🌸', x: '6%',  y: '18%', delay: 0,   duration: 5 },
+  { emoji: '💕', x: '88%', y: '12%', delay: 0.4, duration: 6 },
+  { emoji: '✨', x: '92%', y: '45%', delay: 0.8, duration: 4.5 },
+  { emoji: '🦋', x: '4%',  y: '60%', delay: 1.2, duration: 5.5 },
+  { emoji: '🎀', x: '85%', y: '72%', delay: 0.2, duration: 4 },
+  { emoji: '🌷', x: '12%', y: '82%', delay: 0.6, duration: 6.5 },
+  { emoji: '💫', x: '78%', y: '88%', delay: 1,   duration: 5 },
+  { emoji: '⭐', x: '18%', y: '28%', delay: 0.3, duration: 4.8 },
+  { emoji: '🌙', x: '50%', y: '6%',  delay: 0.9, duration: 6 },
 ];
 
-const containerVariants: Variants = {
+const containerVariants = {
   hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1, delayChildren: 0.2 },
-  },
-};
+  visible: { opacity: 1, transition: { staggerChildren: 0.12, delayChildren: 0.1 } },
+} as const;
 
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 200, damping: 20 } },
-};
+const itemVariants = {
+  hidden: { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 180, damping: 20 } },
+} as const;
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const [hoveredMode, setHoveredMode] = useState<'solo' | 'ldr' | null>(null);
 
   return (
-    <div className="min-h-dvh bg-booth-gradient relative overflow-hidden flex flex-col">
+    <div className="bg-snappy min-h-dvh relative overflow-hidden flex flex-col">
       {/* Decorative blobs */}
-      <div
-        className="blob w-96 h-96 -top-20 -left-20"
-        style={{ background: '#ffb6c1' }}
-      />
-      <div
-        className="blob w-80 h-80 -bottom-10 -right-10"
-        style={{ background: '#c9b1ff' }}
-      />
-      <div
-        className="blob w-64 h-64 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-        style={{ background: '#b5ead7', opacity: 0.25 }}
-      />
+      <div className="blob w-80 h-80 -top-16 -left-16" style={{ background: '#FFB6C1' }} />
+      <div className="blob w-64 h-64 -bottom-8 -right-8" style={{ background: '#C9B1FF' }} />
+      <div className="blob w-56 h-56 top-1/3 right-1/4" style={{ background: '#B5EAD7', opacity: 0.2 }} />
 
-      {/* Floating decorative emojis */}
-      {DECORATIVE_EMOJIS.map(({ emoji, x, y, delay }) => (
+      {/* Floating emojis */}
+      {FLOATERS.map(({ emoji, x, y, delay, duration }) => (
         <motion.span
           key={emoji + x}
           className="absolute text-2xl pointer-events-none select-none"
           style={{ left: x, top: y }}
-          animate={{ y: [0, -12, 0], rotate: [-5, 5, -5] }}
-          transition={{ duration: 4 + delay, repeat: Infinity, ease: 'easeInOut', delay }}
+          animate={{ y: [0, -14, 0], rotate: [-6, 6, -6] }}
+          transition={{ duration, repeat: Infinity, ease: 'easeInOut', delay }}
         >
           {emoji}
         </motion.span>
       ))}
 
+      {/* Top ticker tape */}
+      <div
+        className="w-full overflow-hidden py-2 text-xs font-semibold text-white/80"
+        style={{ background: 'rgba(255,143,171,0.5)', letterSpacing: '0.05em' }}
+      >
+        <div className="ticker-tape">
+          {[TICKER, TICKER].map((t, i) => (
+            <span key={i} style={{ paddingRight: '2rem' }}>{t}</span>
+          ))}
+        </div>
+      </div>
+
       {/* Header */}
       <motion.header
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: -16 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative z-10 flex items-center justify-between p-6"
+        className="relative z-10 flex items-center justify-between px-6 pt-4 pb-2"
       >
         <div className="flex items-center gap-2">
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #ff8fab, #c9b1ff)' }}
+          <motion.div
+            animate={{ rotate: [0, -8, 8, 0] }}
+            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+            className="text-2xl"
           >
-            <Camera className="w-4 h-4 text-white" />
-          </div>
-          <span className="font-display text-lg" style={{ color: '#d4607c' }}>
-            PixelBooth
+            📸
+          </motion.div>
+          <span className="font-display text-2xl" style={{ color: '#C0304F' }}>
+            Snappy
           </span>
         </div>
-        <div className="badge badge-pink">✨ Beta</div>
+        <div className="badge badge-pink">✨ New</div>
       </motion.header>
 
       {/* Hero */}
@@ -85,126 +87,144 @@ export default function LandingPage() {
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 pb-12 text-center"
+        className="relative z-10 flex-1 flex flex-col items-center justify-center px-5 pb-10 text-center"
       >
-        {/* Logo area */}
-        <motion.div variants={itemVariants} className="mb-6">
-          <motion.div
-            animate={{ rotate: [0, 5, -5, 0] }}
-            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-            className="text-6xl mb-4 inline-block"
-          >
-            📸
-          </motion.div>
-          <h1 className="font-display text-5xl md:text-7xl mb-3" style={{ lineHeight: 1.1 }}>
-            <span className="shimmer-text">PixelBooth</span>
-          </h1>
-          <p className="text-gray-500 text-lg md:text-xl max-w-md mx-auto leading-relaxed">
-            Capture cute moments ✨ Share your memories 💕
-            <br />
-            <span className="text-sm text-gray-400">Solo or with your person, no matter the distance</span>
-          </p>
+        {/* Camera icon */}
+        <motion.div
+          variants={itemVariants}
+          animate={{ rotate: [0, 6, -6, 0] }}
+          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+          className="text-6xl mb-3 inline-block"
+        >
+          📸
         </motion.div>
+
+        {/* Headline */}
+        <motion.h1
+          variants={itemVariants}
+          className="font-display text-4xl md:text-6xl mb-3 leading-tight"
+        >
+          <span className="shimmer-text">Make memories,</span>
+          <br />
+          <span className="font-display text-4xl md:text-5xl" style={{ color: '#C0304F' }}>
+            even miles apart.
+          </span>
+        </motion.h1>
+
+        {/* Subtitle */}
+        <motion.p
+          variants={itemVariants}
+          className="text-gray-500 text-base md:text-lg max-w-md mx-auto leading-relaxed mb-8"
+        >
+          A cute virtual photobooth for you, your friends, and your favorite person.
+          <span className="block text-sm text-pink-300 mt-1">No app needed. Just vibes. ✨</span>
+        </motion.p>
 
         {/* Mode cards */}
         <motion.div
           variants={itemVariants}
-          className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-xl mb-8"
+          className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-lg mb-8"
         >
           {/* Solo Booth */}
           <motion.button
-            whileHover={{ scale: 1.03, y: -4 }}
+            whileHover={{ scale: 1.04, y: -5 }}
             whileTap={{ scale: 0.97 }}
-            onHoverStart={() => setHoveredMode('solo')}
-            onHoverEnd={() => setHoveredMode(null)}
             onClick={() => navigate('/solo')}
-            className="glass-card p-6 text-left group cursor-pointer"
+            className="card-white p-6 text-left group cursor-pointer"
             id="btn-solo-mode"
           >
-            <div className="flex items-start gap-4">
+            <div className="flex flex-col gap-3">
               <motion.div
-                animate={hoveredMode === 'solo' ? { rotate: [0, -10, 10, 0] } : {}}
-                className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg, #ffdac1, #ff8fab)' }}
+                whileHover={{ rotate: [-8, 8, 0] }}
+                className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl"
+                style={{ background: 'linear-gradient(135deg,#FFDAC1,#FF8FAB)' }}
               >
                 📷
               </motion.div>
-              <div className="flex-1 min-w-0">
-                <h2 className="font-semibold text-gray-700 text-lg">Solo Booth</h2>
-                <p className="text-sm text-gray-400 mt-1 leading-relaxed">
-                  Take photos by yourself. Add filters & stickers. Get your strip!
+              <div>
+                <h2 className="font-display text-xl text-gray-700 mb-1">Solo Booth</h2>
+                <p className="text-sm text-gray-400 leading-relaxed">
+                  Start a personal photobooth session. Filters, frames, stickers & more.
                 </p>
               </div>
-            </div>
-            <div className="mt-4 flex items-center gap-1 text-pink-400 text-sm font-semibold">
-              Start shooting
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              <div className="flex items-center gap-1 text-pink-400 text-sm font-bold">
+                Start shooting
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1.5 transition-transform" />
+              </div>
             </div>
           </motion.button>
 
           {/* LDR Booth */}
           <motion.button
-            whileHover={{ scale: 1.03, y: -4 }}
+            whileHover={{ scale: 1.04, y: -5 }}
             whileTap={{ scale: 0.97 }}
-            onHoverStart={() => setHoveredMode('ldr')}
-            onHoverEnd={() => setHoveredMode(null)}
             onClick={() => navigate('/ldr')}
-            className="glass-card p-6 text-left group cursor-pointer"
+            className="card-white p-6 text-left group cursor-pointer"
             id="btn-ldr-mode"
-            style={{ border: '1.5px solid rgba(201,177,255,0.5)' }}
+            style={{ borderColor: 'rgba(201,177,255,0.5)' }}
           >
-            <div className="flex items-start gap-4">
+            <div className="flex flex-col gap-3">
               <motion.div
-                animate={hoveredMode === 'ldr' ? { scale: [1, 1.2, 1] } : {}}
-                transition={{ duration: 0.6 }}
-                className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg, #c9b1ff, #aed9e0)' }}
+                animate={{ scale: [1, 1.08, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl"
+                style={{ background: 'linear-gradient(135deg,#E8D5FF,#AED9E0)' }}
               >
-                💌
+                💕
               </motion.div>
-              <div className="flex-1 min-w-0">
-                <h2 className="font-semibold text-gray-700 text-lg">LDR Booth</h2>
-                <p className="text-sm text-gray-400 mt-1 leading-relaxed">
-                  Join the same booth with your partner. Take photos together from anywhere!
+              <div>
+                <h2 className="font-display text-xl text-gray-700 mb-1">LDR Booth</h2>
+                <p className="text-sm text-gray-400 leading-relaxed">
+                  Create or join a shared photobooth with another person. From anywhere!
                 </p>
               </div>
-            </div>
-            <div className="mt-4 flex items-center gap-1 text-purple-400 text-sm font-semibold">
-              <Heart className="w-3.5 h-3.5 fill-current" />
-              Connect with partner
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              <div className="flex items-center gap-1 text-purple-400 text-sm font-bold">
+                <Heart className="w-3.5 h-3.5 fill-current" />
+                Connect together
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1.5 transition-transform" />
+              </div>
             </div>
           </motion.button>
         </motion.div>
 
-        {/* Features */}
-        <motion.div variants={itemVariants} className="flex flex-wrap gap-3 justify-center">
+        {/* Feature pills */}
+        <motion.div variants={itemVariants} className="flex flex-wrap gap-2 justify-center mb-6">
           {[
-            { icon: '🎨', text: '7 Filters' },
+            { icon: '🖼️', text: '11 Frames' },
+            { icon: '🎨', text: '10 Filters' },
             { icon: '✨', text: 'Stickers' },
-            { icon: '🖼️', text: 'Download strip' },
-            { icon: '💌', text: 'LDR real-time' },
+            { icon: '📸', text: '1-6 Photos' },
+            { icon: '💌', text: 'LDR Realtime' },
+            { icon: '🖨️', text: 'Print & Share' },
           ].map(({ icon, text }) => (
-            <div
-              key={text}
-              className="badge badge-lavender flex items-center gap-1"
-            >
+            <div key={text} className="badge badge-pink flex items-center gap-1 py-1 px-2.5">
               <span>{icon}</span>
-              <span>{text}</span>
+              <span className="text-xs">{text}</span>
             </div>
           ))}
         </motion.div>
 
-        {/* Sparkles bottom */}
         <motion.div
           variants={itemVariants}
-          className="mt-8 flex items-center gap-2 text-gray-300 text-sm"
+          className="flex items-center gap-2 text-gray-300 text-xs"
         >
-          <Sparkles className="w-4 h-4" />
-          <span>Made with love for cute moments</span>
-          <Sparkles className="w-4 h-4" />
+          <Sparkles className="w-3.5 h-3.5" />
+          Made with love for cute moments
+          <Sparkles className="w-3.5 h-3.5" />
         </motion.div>
       </motion.main>
+
+      {/* Bottom ticker */}
+      <div
+        className="w-full overflow-hidden py-2 text-xs font-semibold text-white/80"
+        style={{ background: 'rgba(255,143,171,0.5)', letterSpacing: '0.05em' }}
+      >
+        <div className="ticker-tape" style={{ animationDirection: 'reverse' }}>
+          {[TICKER, TICKER].map((t, i) => (
+            <span key={i} style={{ paddingRight: '2rem' }}>{t}</span>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,0 +1,198 @@
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Download, Share2, QrCode, ArrowLeft, Heart, Sparkles, Camera } from 'lucide-react';
+import { getMemory, type MemoryData } from '../lib/memory';
+import QRCodeCard from '../components/QR/QRCodeCard';
+
+export default function MemoryPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [memory, setMemory] = useState<MemoryData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showQR, setShowQR] = useState(false);
+
+  useEffect(() => {
+    if (id) {
+      getMemory(id).then((data) => {
+        setMemory(data);
+        setLoading(false);
+      });
+    }
+  }, [id]);
+
+  const handleDownload = () => {
+    if (!memory) return;
+    const a = document.createElement('a');
+    a.download = `snappy-memory-${memory.id}.png`;
+    a.href = memory.imageUrl;
+    a.click();
+  };
+
+  const handleShare = async () => {
+    if (!memory) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Snappy Memory 📸',
+          text: memory.caption || 'A little memory worth keeping ♡',
+          url: window.location.href,
+        });
+      } catch {
+        // User dismissed
+      }
+    } else {
+      await navigator.clipboard.writeText(window.location.href);
+      alert('Link copied to clipboard! 💕');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-snappy min-h-dvh flex flex-col items-center justify-center p-4">
+        <motion.div
+          animate={{ scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+          className="text-5xl mb-4"
+        >
+          🌸
+        </motion.div>
+        <p className="font-display text-xl text-pink-500">Unwrapping your memory… ♡</p>
+      </div>
+    );
+  }
+
+  if (!memory) {
+    return (
+      <div className="bg-snappy min-h-dvh flex flex-col items-center justify-center p-6 text-center">
+        <div className="text-5xl mb-4">💌</div>
+        <h1 className="font-display text-3xl mb-2 text-pink-500">Memory Not Found</h1>
+        <p className="text-gray-400 text-sm mb-6 max-w-xs">
+          This photobooth memory may have expired or the link is incorrect.
+        </p>
+        <button className="btn-snappy" onClick={() => navigate('/')}>
+          <Camera className="w-4 h-4" />
+          Create New Memory
+        </button>
+      </div>
+    );
+  }
+
+  const formattedDate = new Date(memory.createdAt).toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+
+  return (
+    <div className="bg-snappy-soft min-h-dvh flex flex-col items-center py-8 px-4 relative overflow-hidden">
+      {/* Decorative Blobs */}
+      <div className="blob w-72 h-72 -top-10 -left-10" style={{ background: '#FFB6C1' }} />
+      <div className="blob w-64 h-64 -bottom-10 -right-10" style={{ background: '#C9B1FF' }} />
+
+      {/* Header */}
+      <div className="w-full max-w-md flex items-center justify-between mb-6 z-10">
+        <button className="btn-ghost" onClick={() => navigate('/')}>
+          <ArrowLeft className="w-4 h-4" /> Snappy 📸
+        </button>
+        <span className="badge badge-pink">Public Memory</span>
+      </div>
+
+      {/* Memory Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="card-white p-6 w-full max-w-md flex flex-col items-center gap-5 z-10"
+      >
+        <div className="text-center">
+          <div className="flex items-center justify-center gap-1.5 text-pink-400 mb-1">
+            <Heart className="w-4 h-4 fill-pink-300" />
+            <span className="font-display text-lg text-pink-500">
+              A little memory worth keeping ♡
+            </span>
+            <Heart className="w-4 h-4 fill-pink-300" />
+          </div>
+          <p className="text-xs text-gray-400">{formattedDate}</p>
+        </div>
+
+        {/* Photo Strip Image */}
+        <div className="rounded-xl overflow-hidden shadow-md border-2 border-pink-100 max-w-[240px] w-full">
+          <img
+            src={memory.imageUrl}
+            alt="Photobooth Memory"
+            className="w-full h-auto block"
+          />
+        </div>
+
+        {/* Caption */}
+        {memory.caption && (
+          <div className="px-4 py-2 rounded-full bg-pink-50 border border-pink-200 text-center max-w-xs">
+            <p className="font-body text-sm font-semibold text-gray-600 italic">
+              "{memory.caption}"
+            </p>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex flex-col gap-2 w-full">
+          <div className="grid grid-cols-2 gap-2">
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={handleDownload}
+              className="btn-snappy justify-center py-2.5 text-sm"
+            >
+              <Download className="w-4 h-4" />
+              Download
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={handleShare}
+              className="btn-outline justify-center py-2.5 text-sm"
+            >
+              <Share2 className="w-4 h-4" />
+              Share
+            </motion.button>
+          </div>
+
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setShowQR((v) => !v)}
+            className="btn-outline justify-center py-2 text-xs"
+          >
+            <QrCode className="w-3.5 h-3.5" />
+            {showQR ? 'Hide QR Code' : 'Generate QR Again'}
+          </motion.button>
+        </div>
+
+        {/* QR Code section */}
+        <AnimatePresence>
+          {showQR && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="w-full pt-2"
+            >
+              <QRCodeCard memoryUrl={window.location.href} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Create Your Own Link */}
+        <div className="pt-3 border-t border-pink-100 w-full text-center">
+          <button
+            onClick={() => navigate('/')}
+            className="text-xs text-pink-400 hover:text-pink-600 font-semibold flex items-center justify-center gap-1 mx-auto transition-colors"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Make your own photobooth strip with Snappy
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}

@@ -1,77 +1,116 @@
-import { useState, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, RefreshCw, Check, Zap } from 'lucide-react';
-import { nanoid } from 'nanoid';
-import type { FilterType, Sticker } from '../types';
-import { useCamera } from '../hooks/useCamera';
-import { usePhotoCapture } from '../hooks/usePhotoCapture';
-import CameraView from '../components/Camera/CameraView';
-import CaptureButton from '../components/Camera/CaptureButton';
-import CountdownTimer from '../components/UI/CountdownTimer';
-import FilterSelector from '../components/UI/FilterSelector';
-import StickerPicker from '../components/UI/StickerPicker';
-import PhotoStrip from '../components/PhotoStrip/PhotoStrip';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 
-const MAX_PHOTOS = 4;
+import type {
+  BoothStep, CapturedPhoto, StickerItem,
+  CountdownDuration, PhotoCount, FilterType, FrameTemplate,
+} from '../types';
+import { DEFAULT_BOOTH_CONFIG, FRAME_TEMPLATES } from '../types';
+
+import CountdownSelector from '../components/Setup/CountdownSelector';
+import FrameSelector from '../components/Setup/FrameSelector';
+import PhotoCountSelector from '../components/Setup/PhotoCountSelector';
+import FilterSelector from '../components/Setup/FilterSelector';
+import CameraSession from '../components/Camera/CameraSession';
+import RetakeReview from '../components/Retake/RetakeReview';
+import StripCanvas from '../components/Strip/StripCanvas';
+import type { StripCanvasRef } from '../components/Strip/StripCanvas';
+import PrintAnimation from '../components/Print/PrintAnimation';
+
+// ─── Step metadata ─────────────────────────────────────────────────────────────
+const STEPS: { key: BoothStep; label: string; emoji: string }[] = [
+  { key: 'setup',     label: 'Setup',    emoji: '⚙️' },
+  { key: 'camera',    label: 'Camera',   emoji: '📷' },
+  { key: 'retake',    label: 'Review',   emoji: '👀' },
+  { key: 'customize', label: 'Style',    emoji: '✨' },
+  { key: 'print',     label: 'Print',    emoji: '🖨️' },
+];
+
+const STEP_ORDER: BoothStep[] = ['setup', 'camera', 'retake', 'customize', 'print'];
+
+function stepIndex(step: BoothStep) { return STEP_ORDER.indexOf(step); }
+
+// ─── Page transitions ──────────────────────────────────────────────────────────
+const pageVariants = {
+  enter:  { opacity: 0, x: 40 },
+  center: { opacity: 1, x: 0 },
+  exit:   { opacity: 0, x: -40 },
+};
 
 export default function SoloBoothPage() {
   const navigate = useNavigate();
-  const camera = useCamera();
-  const { photos, isCountingDown, countdown, isFlashing, capturePhoto, clearPhotos, canCapture } =
-    usePhotoCapture();
 
-  const [filter, setFilter] = useState<FilterType>('none');
-  const [stickers, setStickers] = useState<Sticker[]>([]);
+  // ── Booth config ──────────────────────────────────────────────────────────
+  const [step, setStep] = useState<BoothStep>('setup');
   const [userName, setUserName] = useState('');
   const [nameSet, setNameSet] = useState(false);
-  const [activeTab, setActiveTab] = useState<'filters' | 'stickers'>('filters');
-  const videoElRef = camera.videoRef;
 
-  const handleCapture = useCallback(async () => {
-    if (!videoElRef.current || !canCapture) return;
-    await capturePhoto(videoElRef.current, filter, stickers, userName || 'Solo');
-  }, [videoElRef, canCapture, capturePhoto, filter, stickers, userName]);
+  const [countdown, setCountdown] = useState<CountdownDuration>(DEFAULT_BOOTH_CONFIG.countdown);
+  const [frameTemplate, setFrameTemplate] = useState<FrameTemplate>(FRAME_TEMPLATES[0]);
+  const [frameColor, setFrameColor] = useState('#FFFFFF');
+  const [filter, setFilter] = useState<FilterType>('original');
+  const [photoCount, setPhotoCount] = useState<PhotoCount>(4);
 
-  const handleAddSticker = (emoji: string) => {
-    const newSticker: Sticker = {
-      id: nanoid(),
-      emoji,
-      x: 30 + Math.random() * 40,
-      y: 30 + Math.random() * 40,
-      scale: 1,
-      rotation: (Math.random() - 0.5) * 30,
-    };
-    setStickers((prev) => [...prev, newSticker]);
+  const [photos, setPhotos] = useState<CapturedPhoto[]>([]);
+  const [stickers, setStickers] = useState<StickerItem[]>([]);
+  const [caption, setCaption] = useState('');
+  const [stripDataUrl, setStripDataUrl] = useState('');
+
+  const stripRef = useRef<StripCanvasRef>(null);
+
+  // ── Navigation ────────────────────────────────────────────────────────────
+  const goNext = () => {
+    const idx = stepIndex(step);
+    if (idx < STEP_ORDER.length - 1) setStep(STEP_ORDER[idx + 1]);
+  };
+  const goBack = () => {
+    const idx = stepIndex(step);
+    if (idx > 0) setStep(STEP_ORDER[idx - 1]);
+    else navigate('/');
   };
 
-  const isStripComplete = photos.length >= MAX_PHOTOS;
+  const handleCameraComplete = useCallback((captured: CapturedPhoto[]) => {
+    setPhotos(captured);
+    setStep('retake');
+  }, []);
 
-  // Name entry screen
+  const handleRetakeConfirm = useCallback(() => {
+    setStep('customize');
+  }, []);
+
+  const handleRetakeUpdate = useCallback((updated: CapturedPhoto[]) => {
+    setPhotos(updated);
+    if (updated.length === 0) setStep('camera'); // retake all → back to camera
+  }, []);
+
+  const handleGenerateStrip = useCallback(async () => {
+    if (!stripRef.current) return;
+    const dataUrl = await stripRef.current.getDataUrl();
+    setStripDataUrl(dataUrl);
+    setStep('print');
+  }, []);
+
+  // ── Name gate ─────────────────────────────────────────────────────────────
   if (!nameSet) {
     return (
-      <div className="min-h-dvh bg-booth-gradient flex items-center justify-center p-4">
+      <div className="bg-snappy min-h-dvh flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="glass-card p-8 w-full max-w-md text-center"
+          className="card-white p-8 w-full max-w-sm text-center"
         >
-          <div className="text-4xl mb-4">📷</div>
-          <h1 className="font-display text-3xl mb-2" style={{ color: '#d4607c' }}>
-            Solo Booth
-          </h1>
-          <p className="text-gray-400 text-sm mb-6">
-            What should we call you? 🌸
-          </p>
+          <div className="text-5xl mb-4">📷</div>
+          <h1 className="font-display text-3xl mb-1" style={{ color: '#C0304F' }}>Solo Booth</h1>
+          <p className="text-gray-400 text-sm mb-6">What should we call you? 🌸</p>
           <input
             type="text"
             placeholder="Your name..."
             className="cute-input mb-4 text-center"
             value={userName}
             onChange={(e) => setUserName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && userName.trim()) setNameSet(true);
-            }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && userName.trim()) setNameSet(true); }}
             autoFocus
             maxLength={20}
             id="input-user-name"
@@ -79,172 +118,204 @@ export default function SoloBoothPage() {
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
-            className="btn-primary w-full"
+            className="btn-snappy w-full"
             onClick={() => setNameSet(true)}
             disabled={!userName.trim()}
             id="btn-enter-booth"
           >
             Enter Booth ✨
           </motion.button>
-          <button
-            className="btn-ghost mt-3 w-full"
-            onClick={() => navigate('/')}
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back
+          <button className="btn-ghost mt-3 w-full" onClick={() => navigate('/')}>
+            <ArrowLeft className="w-4 h-4" /> Back
           </button>
         </motion.div>
       </div>
     );
   }
 
+  const currentIdx = stepIndex(step);
+
   return (
-    <div className="min-h-dvh bg-booth-gradient">
+    <div className="bg-snappy-soft min-h-dvh flex flex-col">
       {/* Header */}
-      <motion.header
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between p-4 pb-0"
+      <header className="sticky top-0 z-30 px-4 py-3 flex items-center justify-between"
+        style={{ background: 'rgba(255,240,245,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,182,193,0.3)' }}
       >
-        <button className="btn-ghost" onClick={() => navigate('/')}>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={goBack}
+          className="btn-ghost"
+        >
           <ArrowLeft className="w-4 h-4" />
-          Back
-        </button>
-        <div className="flex items-center gap-2">
-          <span className="font-display text-lg" style={{ color: '#d4607c' }}>
-            Solo Booth
-          </span>
-          <span className="badge badge-pink">📷 {userName}</span>
+          {step === 'setup' ? 'Home' : 'Back'}
+        </motion.button>
+
+        {/* Step dots */}
+        <div className="flex items-center gap-1.5">
+          {STEPS.map((s, i) => (
+            <div
+              key={s.key}
+              className={`step-dot ${
+                i === currentIdx ? 'active' : i < currentIdx ? 'done' : ''
+              }`}
+            />
+          ))}
         </div>
-        {photos.length > 0 && (
-          <button className="btn-ghost text-xs" onClick={clearPhotos}>
-            <RefreshCw className="w-3.5 h-3.5" />
-            Reset
-          </button>
-        )}
-      </motion.header>
 
-      <div className="container-booth py-4">
-        <div className="flex flex-col lg:flex-row gap-4 items-start justify-center">
-          {/* Left: Camera + controls */}
+        <div className="badge badge-pink">{STEPS[currentIdx].emoji} {STEPS[currentIdx].label}</div>
+      </header>
+
+      {/* Step content */}
+      <div className="flex-1 container-snappy py-6">
+        <AnimatePresence mode="wait">
           <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex-1 max-w-lg w-full"
+            key={step}
+            variants={pageVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
           >
-            {/* Camera */}
-            <div className="relative" style={{ aspectRatio: '3/4' }}>
-              <CameraView
-                camera={camera}
-                filter={filter}
-                isFlashing={isFlashing}
-                className="absolute inset-0 booth-frame"
-              />
 
-              {/* Countdown overlay */}
-              {isCountingDown && (
-                <div className="absolute inset-0 z-50" style={{ borderRadius: '2rem' }}>
-                  <CountdownTimer count={countdown} isVisible={isCountingDown} />
+            {/* ── STEP 0: Setup ───────────────────────────────────────────────── */}
+            {step === 'setup' && (
+              <div className="max-w-2xl mx-auto">
+                <div className="text-center mb-6">
+                  <h1 className="font-display text-3xl mb-1" style={{ color: '#C0304F' }}>
+                    Booth Setup 🎀
+                  </h1>
+                  <p className="text-gray-400 text-sm">
+                    Hey {userName}! Customize your session before we start. ✨
+                  </p>
                 </div>
-              )}
 
-              {/* Strip complete banner */}
-              <AnimatePresence>
-                {isStripComplete && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="absolute bottom-4 left-4 right-4 z-40"
-                  >
-                    <div
-                      className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white"
-                      style={{ background: 'linear-gradient(135deg,#ff8fab,#c9b1ff)' }}
-                    >
-                      <Check className="w-4 h-4" />
-                      Strip complete! Download below 🎉
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Left column */}
+                  <div className="flex flex-col gap-4">
+                    <div className="card p-5">
+                      <CountdownSelector value={countdown} onChange={setCountdown} />
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+                    <div className="card p-5">
+                      <PhotoCountSelector value={photoCount} onChange={setPhotoCount} />
+                    </div>
+                    <div className="card p-5">
+                      <FilterSelector selected={filter} onChange={setFilter} />
+                    </div>
+                  </div>
 
-            {/* Controls bar */}
-            <div className="glass-card mt-4 p-4">
-              {/* Tab switcher */}
-              <div className="flex rounded-xl overflow-hidden mb-3" style={{ background: 'rgba(201,177,255,0.15)' }}>
-                {(['filters', 'stickers'] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className="flex-1 py-2 text-xs font-semibold capitalize transition-all duration-200 rounded-xl"
-                    style={{
-                      background: activeTab === tab ? 'linear-gradient(135deg,#ff8fab,#c9b1ff)' : 'transparent',
-                      color: activeTab === tab ? 'white' : '#9b8fb0',
-                    }}
-                  >
-                    {tab === 'filters' ? '🎨 Filters' : '✨ Stickers'}
-                  </button>
-                ))}
+                  {/* Right column — frame */}
+                  <div className="card p-5">
+                    <FrameSelector
+                      selectedFrame={frameTemplate}
+                      selectedColor={frameColor}
+                      onFrameChange={setFrameTemplate}
+                      onColorChange={setFrameColor}
+                    />
+                  </div>
+                </div>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="btn-snappy w-full mt-6"
+                  onClick={goNext}
+                >
+                  Start Session 📸
+                  <ArrowRight className="w-4 h-4" />
+                </motion.button>
               </div>
+            )}
 
-              <AnimatePresence mode="wait">
-                {activeTab === 'filters' ? (
-                  <motion.div
-                    key="filters"
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 10 }}
-                  >
-                    <FilterSelector selected={filter} onChange={setFilter} />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="stickers"
-                    initial={{ opacity: 0, x: 10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -10 }}
-                  >
-                    <StickerPicker onStickerAdd={handleAddSticker} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Capture button */}
-            <div className="flex justify-center mt-5">
-              <CaptureButton
-                onClick={handleCapture}
-                disabled={!canCapture || !camera.isReady}
-                photosLeft={MAX_PHOTOS - photos.length}
-              />
-            </div>
-          </motion.div>
-
-          {/* Right: Photo strip */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="lg:w-52 w-full flex flex-col items-center"
-          >
-            <div className="glass-card p-4 w-full flex flex-col items-center">
-              <div className="flex items-center gap-2 mb-4">
-                <Zap className="w-4 h-4 text-pink-400" />
-                <span className="text-sm font-semibold text-gray-600">Your Strip</span>
-                <span className="badge badge-pink text-xs">{photos.length}/4</span>
-              </div>
-              <PhotoStrip
-                photos={photos}
+            {/* ── STEP 1: Camera ──────────────────────────────────────────────── */}
+            {step === 'camera' && (
+              <CameraSession
+                filter={filter}
+                countdown={countdown}
+                photoCount={photoCount}
                 userName={userName}
-                showDownload={isStripComplete}
+                onComplete={handleCameraComplete}
+                onCancel={() => setStep('setup')}
               />
-              {!isStripComplete && photos.length === 0 && (
-                <p className="text-xs text-gray-400 text-center mt-3">
-                  Take 4 photos to complete your strip! ✨
-                </p>
-              )}
-            </div>
+            )}
+
+            {/* ── STEP 2: Retake ──────────────────────────────────────────────── */}
+            {step === 'retake' && (
+              <RetakeReview
+                photos={photos}
+                filter={filter}
+                countdown={countdown}
+                onUpdate={handleRetakeUpdate}
+                onConfirm={handleRetakeConfirm}
+              />
+            )}
+
+            {/* ── STEP 3: Customize ───────────────────────────────────────────── */}
+            {step === 'customize' && (
+              <div className="max-w-3xl mx-auto">
+                <div className="text-center mb-6">
+                  <h1 className="font-display text-3xl mb-1" style={{ color: '#C0304F' }}>
+                    Style your strip ✨
+                  </h1>
+                  <p className="text-gray-400 text-sm">
+                    Add stickers, a caption, and pick your frame color!
+                  </p>
+                </div>
+
+                <div className="card p-5">
+                  <StripCanvas
+                    ref={stripRef}
+                    photos={photos}
+                    frameTemplate={frameTemplate}
+                    frameColor={frameColor}
+                    caption={caption}
+                    stickers={stickers}
+                    onCaptionChange={setCaption}
+                    onStickersChange={setStickers}
+                    userName={userName}
+                  />
+                </div>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="btn-snappy w-full mt-5"
+                  onClick={handleGenerateStrip}
+                >
+                  Generate Strip 🖨️
+                  <ArrowRight className="w-4 h-4" />
+                </motion.button>
+              </div>
+            )}
+
+            {/* ── STEP 4: Print ───────────────────────────────────────────────── */}
+            {step === 'print' && (
+              <div className="max-w-sm mx-auto">
+                <div className="text-center mb-4">
+                  <h1 className="font-display text-3xl mb-1" style={{ color: '#C0304F' }}>
+                    Almost done! 🎉
+                  </h1>
+                </div>
+                <div className="card-white p-6">
+                  <PrintAnimation
+                    stripDataUrl={stripDataUrl}
+                    caption={caption}
+                    frame={frameTemplate.id}
+                    frameColor={frameColor}
+                    onBack={() => {
+                      setPhotos([]);
+                      setStickers([]);
+                      setCaption('');
+                      setStripDataUrl('');
+                      setStep('setup');
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
           </motion.div>
-        </div>
+        </AnimatePresence>
       </div>
     </div>
   );
