@@ -14,7 +14,7 @@ export default function FilterSelector({ selected, onChange }: FilterSelectorPro
 
   return (
     <div className="w-full">
-      <p className="text-xs font-bold text-pink-400 uppercase tracking-widest mb-3">
+      <p className="font-cute text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#D98FA8' }}>
         🎨 Filter
       </p>
       <div
@@ -35,8 +35,8 @@ export default function FilterSelector({ selected, onChange }: FilterSelectorPro
               className="w-14 h-10 rounded-lg overflow-hidden relative flex-shrink-0"
               style={{
                 border: selected === f.id
-                  ? '2px solid #C9B1FF'
-                  : '2px solid rgba(255,182,193,0.3)',
+                  ? '1.5px solid #D98FA8'
+                  : '1.5px solid rgba(216,191,199,0.3)',
               }}
             >
               <div
@@ -44,10 +44,10 @@ export default function FilterSelector({ selected, onChange }: FilterSelectorPro
                 style={{ filter: getFilterCSS(f.id) }}
               />
             </div>
-            <span className="text-[10px] font-semibold" style={{ color: selected === f.id ? '#7c5cbf' : '#9b8fb0' }}>
+            <span className="font-cute text-[10px] font-semibold" style={{ color: selected === f.id ? '#D98FA8' : '#A68B95' }}>
               {f.emoji}
             </span>
-            <span className="text-[9px] font-medium text-gray-400 -mt-1">{f.label}</span>
+            <span className="font-cute text-[9px] font-medium text-gray-400 -mt-1">{f.label}</span>
           </motion.button>
         ))}
       </div>

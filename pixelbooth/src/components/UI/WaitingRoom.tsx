@@ -55,41 +55,42 @@ export default function WaitingRoom({ hostName, boothCode }: WaitingRoomProps) {
             transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
             className="w-16 h-16 rounded-full flex items-center justify-center"
             style={{
-              background: 'linear-gradient(135deg, #ff8fab, #c9b1ff)',
-              boxShadow: '0 4px 24px rgba(255,143,171,0.4)',
+              background: 'linear-gradient(135deg, #F7C8D5, #FADDE5)',
+              boxShadow: '0 4px 20px rgba(247,200,213,0.4)',
+              border: '1.5px solid rgba(242,175,194,0.6)',
             }}
           >
-            <Heart className="w-8 h-8 text-white fill-white" />
+            <Heart className="w-8 h-8 text-pink-400 fill-pink-300" />
           </motion.div>
         </div>
       </div>
 
       <div className="space-y-2">
-        <h2 className="font-display text-2xl text-gray-700">
+        <h2 className="font-display text-2xl" style={{ color: '#D98FA8' }}>
           Waiting for your partner…
         </h2>
-        <p className="text-gray-400 text-sm">
-          Share the code below with <span className="font-semibold text-purple-400">{hostName.split(' ')[0] === hostName ? 'them' : 'your partner'}</span>
+        <p className="font-cute text-sm" style={{ color: '#B8A0A8' }}>
+          Share the code below with <span className="font-semibold" style={{ color: '#D98FA8' }}>{hostName.split(' ')[0] === hostName ? 'them' : 'your partner'}</span>
         </p>
       </div>
 
       {/* Live indicator */}
       <motion.div
-        className="flex items-center gap-2 px-4 py-2 rounded-full"
-        style={{ background: 'rgba(181, 234, 215, 0.3)', border: '1.5px solid rgba(181, 234, 215, 0.6)' }}
+        className="flex items-center gap-2 px-4 py-2 rounded-full font-cute"
+        style={{ background: 'rgba(216, 245, 210, 0.4)', border: '1.5px solid rgba(201, 239, 200, 0.6)' }}
       >
         <motion.div
           className="w-2 h-2 rounded-full"
-          style={{ background: '#6fcf97' }}
+          style={{ background: '#4A8C4A' }}
           animate={{ opacity: [1, 0.3, 1] }}
           transition={{ duration: 1.2, repeat: Infinity }}
         />
-        <Wifi className="w-3.5 h-3.5 text-green-500" />
-        <span className="text-xs font-semibold text-green-600">Booth is live</span>
+        <Wifi className="w-3.5 h-3.5" style={{ color: '#4A8C4A' }} />
+        <span className="text-xs font-semibold" style={{ color: '#4A8C4A' }}>Booth is live</span>
       </motion.div>
 
-      <p className="text-xs text-gray-300 mt-2">
-        Booth code: <span className="font-bold text-purple-300">{boothCode}</span>
+      <p className="font-cute text-xs mt-2" style={{ color: '#C4A8B4' }}>
+        Booth code: <span className="font-bold font-hand text-base" style={{ color: '#D98FA8' }}>{boothCode}</span>
       </p>
     </motion.div>
   );

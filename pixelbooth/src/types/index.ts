@@ -50,27 +50,23 @@ export interface FrameTemplate {
 }
 
 export const FRAME_TEMPLATES: FrameTemplate[] = [
-  { id: 'classic',   label: 'Classic',     emoji: '🤍', borderStyle: 'solid',  decorations: [] },
-  { id: 'hearts',    label: 'Pink Hearts', emoji: '💕', borderStyle: 'solid',  decorations: ['💕','🩷','❤️','💗'] },
-  { id: 'clouds',    label: 'Blue Clouds', emoji: '☁️', borderStyle: 'solid',  decorations: ['☁️','🌤️','💙','⭐'] },
-  { id: 'stars',     label: 'Purple Stars',emoji: '⭐', borderStyle: 'dashed', decorations: ['⭐','💜','✨','🌟'] },
-  { id: 'y2k',       label: 'Y2K',        emoji: '💿', borderStyle: 'solid',  decorations: ['💿','⚡','🌐','💎'] },
-  { id: 'minimal',   label: 'Minimal',    emoji: '🫧', borderStyle: 'solid',  decorations: [] },
-  { id: 'doodles',   label: 'Cute Doodles',emoji:'🎨', borderStyle: 'dashed', decorations: ['🌈','🍭','🎈','🎀'] },
-  { id: 'polaroid',  label: 'Polaroid',   emoji: '📷', borderStyle: 'solid',  decorations: [] },
-  { id: 'birthday',  label: 'Birthday',   emoji: '🎂', borderStyle: 'dotted', decorations: ['🎂','🎉','🎊','🎈'] },
-  { id: 'valentine', label: "Valentine's",emoji: '💝', borderStyle: 'dashed', decorations: ['💝','🌹','💌','💘'] },
-  { id: 'christmas', label: 'Christmas',  emoji: '🎄', borderStyle: 'solid',  decorations: ['🎄','⭐','❄️','🎁'] },
+  { id: 'sweetheart',     label: 'Sweetheart',          emoji: '💕', borderStyle: 'solid',  decorations: ['💕','🩷','♡','🌸'] },
+  { id: 'clover',         label: 'Four-Leaf Clover',    emoji: '☘️', borderStyle: 'solid',  decorations: ['☘️','🌿','✿','✨'] },
+  { id: 'babyblue_diary', label: 'Baby Blue Diary',     emoji: '📖', borderStyle: 'solid',  decorations: ['☁️','⭐','💙','💫'] },
+  { id: 'strawberry',     label: 'Strawberry Milk',     emoji: '🍓', borderStyle: 'dashed', decorations: ['🍓','🥛','🎀','🌸'] },
+  { id: 'mint_picnic',    label: 'Mint Picnic',         emoji: '🧺', borderStyle: 'solid',  decorations: ['🌷','✿','🍃','✨'] },
+  { id: 'dreamy_ribbon',  label: 'Dreamy Ribbon',       emoji: '🎀', borderStyle: 'dashed', decorations: ['🎀','✨','💫','♡'] },
+  { id: 'love_letter',    label: 'Vintage Love Letter', emoji: '💌', borderStyle: 'double', decorations: ['💌','🌹','🕊️','📜'] },
 ];
 
 export const FRAME_COLORS = [
-  { id: 'white',     label: 'White',     hex: '#FFFFFF' },
-  { id: 'pink',      label: 'Pink',      hex: '#FFB6C1' },
-  { id: 'babyblue',  label: 'Baby Blue', hex: '#AED9E0' },
-  { id: 'lavender',  label: 'Lavender',  hex: '#C9B1FF' },
-  { id: 'yellow',    label: 'Yellow',    hex: '#FFF3B0' },
-  { id: 'mint',      label: 'Mint',      hex: '#B5EAD7' },
-  { id: 'black',     label: 'Black',     hex: '#2D2D2D' },
+  { id: 'white',      label: 'Soft White',       hex: '#FFFFFF' },
+  { id: 'blush',      label: 'Blush Pink',       hex: '#F7C8D5' },
+  { id: 'babyblue',   label: 'Powder Blue',      hex: '#DDF5F7' },
+  { id: 'mint',       label: 'Mint Green',       hex: '#D8F5D2' },
+  { id: 'cream',      label: 'Warm Cream',       hex: '#FFF9E9' },
+  { id: 'strawberry', label: 'Strawberry Pink',  hex: '#F2AFC2' },
+  { id: 'charcoal',   label: 'Soft Gray',        hex: '#3D3D3D' },
 ];
 
 // ─── Stickers ─────────────────────────────────────────────────────────────────

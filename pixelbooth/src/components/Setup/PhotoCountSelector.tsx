@@ -16,7 +16,7 @@ const OPTIONS: { value: PhotoCount; label: string; layout: string[] }[] = [
 export default function PhotoCountSelector({ value, onChange }: PhotoCountSelectorProps) {
   return (
     <div>
-      <p className="text-xs font-bold text-pink-400 uppercase tracking-widest mb-3">
+      <p className="font-cute text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#D98FA8' }}>
         📸 Photos
       </p>
       <div className="grid grid-cols-4 gap-2">
@@ -26,10 +26,10 @@ export default function PhotoCountSelector({ value, onChange }: PhotoCountSelect
             whileHover={{ scale: 1.05, y: -2 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => onChange(opt.value)}
-            className={`rounded-xl p-2 flex flex-col items-center gap-1.5 border-2 transition-all duration-200 ${
+            className={`rounded-xl p-2 flex flex-col items-center gap-1.5 border-1.5 transition-all duration-200 ${
               value === opt.value
-                ? 'border-purple-300 bg-purple-50'
-                : 'border-pink-100 bg-white/60 hover:border-pink-200'
+                ? 'border-pink-300 bg-pink-50/80'
+                : 'border-pink-100/60 bg-white/70 hover:border-pink-200'
             }`}
           >
             {/* Mini strip preview */}
@@ -41,13 +41,13 @@ export default function PhotoCountSelector({ value, onChange }: PhotoCountSelect
                   style={{
                     height: opt.value === 6 ? '7px' : opt.value === 1 ? '28px' : '10px',
                     background: value === opt.value
-                      ? 'linear-gradient(135deg,#FF8FAB,#C9B1FF)'
-                      : '#ffd6e0',
+                      ? 'linear-gradient(135deg,#F7C8D5,#FADDE5)'
+                      : '#FADDE5',
                   }}
                 />
               ))}
             </div>
-            <span className="text-[10px] font-bold text-gray-500">{opt.label}</span>
+            <span className="font-cute text-[10px] font-bold" style={{ color: '#7A5C6A' }}>{opt.label}</span>
           </motion.button>
         ))}
       </div>

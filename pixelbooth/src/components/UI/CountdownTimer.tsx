@@ -5,7 +5,7 @@ interface CountdownTimerProps {
   isVisible: boolean;
 }
 
-const colors = ['#ff8fab', '#c9b1ff', '#b5ead7', '#ffdac1'];
+const colors = ['#F7C8D5', '#DDF5F7', '#D8F5D2', '#FFF9E9'];
 
 export default function CountdownTimer({ count, isVisible }: CountdownTimerProps) {
   const label = count > 0 ? String(count) : '📸';
@@ -26,7 +26,8 @@ export default function CountdownTimer({ count, isVisible }: CountdownTimerProps
           <div
             className="absolute inset-0"
             style={{
-              background: 'rgba(0,0,0,0.25)',
+              background: 'rgba(122,92,106,0.3)',
+              backdropFilter: 'blur(2px)',
               borderRadius: '1.5rem',
             }}
           />
@@ -64,7 +65,7 @@ export default function CountdownTimer({ count, isVisible }: CountdownTimerProps
                 style={{
                   fontSize: count === 0 ? '4rem' : '7rem',
                   lineHeight: 1,
-                  textShadow: `0 0 40px ${color}`,
+                  textShadow: `0 0 30px ${color}`,
                 }}
               >
                 {label}
@@ -73,9 +74,9 @@ export default function CountdownTimer({ count, isVisible }: CountdownTimerProps
                 <motion.span
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-2 text-white/80 text-sm font-semibold tracking-widest uppercase"
+                  className="mt-2 text-white/90 text-sm font-cute tracking-widest uppercase"
                 >
-                  Get ready!
+                  Get ready! ♡
                 </motion.span>
               )}
             </motion.div>

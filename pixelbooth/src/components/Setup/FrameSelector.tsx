@@ -21,7 +21,7 @@ export default function FrameSelector({
 
   return (
     <div className="space-y-3">
-      <p className="text-xs font-bold text-pink-400 uppercase tracking-widest">
+      <p className="font-cute text-xs font-bold uppercase tracking-widest" style={{ color: '#D98FA8' }}>
         🖼 Frame
       </p>
 
@@ -42,8 +42,8 @@ export default function FrameSelector({
               className="w-full aspect-[3/4] rounded-lg flex flex-col items-center justify-center text-xs gap-0.5 relative overflow-hidden"
               style={{
                 background: selectedColor,
-                border: `3px ${frame.borderStyle} ${
-                  selectedColor === '#FFFFFF' ? '#e0c0cc' :
+                border: `2px ${frame.borderStyle} ${
+                  selectedColor === '#FFFFFF' ? '#D8BFC7' :
                   selectedColor === '#2D2D2D' ? '#555' : selectedColor
                 }`,
               }}
@@ -68,10 +68,10 @@ export default function FrameSelector({
               {/* Inner photo area */}
               <div
                 className="w-4/5 aspect-[3/4] rounded"
-                style={{ background: 'rgba(255,255,255,0.6)' }}
+                style={{ background: 'rgba(255,249,233,0.7)' }}
               />
             </div>
-            <span className="text-[10px] font-semibold text-gray-500 mt-1 block text-center truncate w-full px-1">
+            <span className="font-cute text-[10px] font-semibold text-gray-500 mt-1 block text-center truncate w-full px-1">
               {frame.label}
             </span>
 
@@ -80,7 +80,7 @@ export default function FrameSelector({
               <motion.div
                 layoutId="frame-active"
                 className="absolute inset-0 rounded-xl pointer-events-none"
-                style={{ border: '2px solid #C9B1FF' }}
+                style={{ border: '2px solid #D98FA8' }}
               />
             )}
           </motion.button>
@@ -90,7 +90,7 @@ export default function FrameSelector({
       {/* Show more/less */}
       {FRAME_TEMPLATES.length > 6 && (
         <button
-          className="btn-ghost text-xs w-full"
+          className="btn-ghost font-cute text-xs w-full"
           onClick={() => setShowAll((v) => !v)}
         >
           {showAll ? '↑ Show less' : `+ ${FRAME_TEMPLATES.length - 6} more frames`}
@@ -99,7 +99,7 @@ export default function FrameSelector({
 
       {/* Color swatches */}
       <div>
-        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+        <p className="font-cute text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#A68B95' }}>
           Frame Color
         </p>
         <div className="flex gap-2 flex-wrap">
@@ -114,11 +114,11 @@ export default function FrameSelector({
               style={{
                 background: c.hex,
                 border: selectedColor === c.hex
-                  ? '3px solid #C9B1FF'
+                  ? '2.5px solid #D98FA8'
                   : c.hex === '#FFFFFF'
-                    ? '2px solid #e0c0cc'
-                    : '2px solid transparent',
-                boxShadow: selectedColor === c.hex ? '0 2px 8px rgba(201,177,255,0.5)' : 'none',
+                    ? '1.5px solid #D8BFC7'
+                    : '1.5px solid transparent',
+                boxShadow: selectedColor === c.hex ? '0 2px 8px rgba(247,200,213,0.5)' : 'none',
               }}
             />
           ))}

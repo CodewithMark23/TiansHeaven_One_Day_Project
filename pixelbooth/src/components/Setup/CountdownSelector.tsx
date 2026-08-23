@@ -15,7 +15,7 @@ const OPTIONS: { value: CountdownDuration; label: string; emoji: string }[] = [
 export default function CountdownSelector({ value, onChange }: CountdownSelectorProps) {
   return (
     <div>
-      <p className="text-xs font-bold text-pink-400 uppercase tracking-widest mb-3">
+      <p className="font-cute text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#D98FA8' }}>
         ⏱ Countdown
       </p>
       <div className="pill-selector">
@@ -25,7 +25,7 @@ export default function CountdownSelector({ value, onChange }: CountdownSelector
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => onChange(opt.value)}
-            className={`pill-option ${value === opt.value ? 'active' : ''}`}
+            className={`pill-option font-cute ${value === opt.value ? 'active' : ''}`}
           >
             {opt.emoji} {opt.label}
           </motion.button>

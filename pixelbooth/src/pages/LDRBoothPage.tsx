@@ -289,21 +289,21 @@ export default function LDRBoothPage() {
 
   if (!nameEntered) {
     return (
-      <div className="bg-snappy min-h-dvh flex items-center justify-center p-4">
+      <div className="bg-scrapbook min-h-dvh flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="card-white p-8 w-full max-w-sm text-center"
+          className="card-stationery p-8 w-full max-w-sm text-center"
         >
           <div className="text-4xl mb-3">💕</div>
-          <h2 className="font-display text-2xl text-purple-600 mb-1">Enter LDR Booth</h2>
-          <p className="text-xs text-gray-400 mb-4">
-            Joining Booth Code: <span className="font-bold text-pink-500">{code}</span>
+          <h2 className="font-display text-2xl mb-1" style={{ color: '#D98FA8' }}>Enter LDR Booth</h2>
+          <p className="font-cute text-xs mb-4" style={{ color: '#B8A0A8' }}>
+            Joining Booth Code: <span className="font-bold font-hand text-base" style={{ color: '#D98FA8' }}>{code}</span>
           </p>
           <input
             type="text"
             placeholder="Your name..."
-            className="cute-input mb-3 text-center"
+            className="cute-input mb-3 text-center font-cute"
             value={userName}
             onChange={(e) => setUserName(e.target.value)}
             onKeyDown={(e) => {
@@ -312,15 +312,15 @@ export default function LDRBoothPage() {
             autoFocus
           />
           <button
-            className="btn-snappy w-full mb-2"
+            className="btn-scrapbook w-full mb-2"
             onClick={() => {
               if (userName.trim()) setNameEntered(true);
             }}
             disabled={!userName.trim()}
           >
-            Enter Booth ✨
+            Enter Booth ♡
           </button>
-          <button className="btn-ghost w-full" onClick={() => navigate('/ldr')}>
+          <button className="btn-ghost w-full font-cute" onClick={() => navigate('/ldr')}>
             <ArrowLeft className="w-4 h-4" /> Back
           </button>
         </motion.div>

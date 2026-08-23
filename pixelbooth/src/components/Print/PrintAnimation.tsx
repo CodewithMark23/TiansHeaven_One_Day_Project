@@ -15,6 +15,9 @@ interface PrintAnimationProps {
 
 type Phase = 'printing' | 'ready';
 
+// Floating hearts for printing animation
+const HEARTS = ['♡', '✿', '♡', '☆', '♡'];
+
 export default function PrintAnimation({
   stripDataUrl,
   onBack,
@@ -28,15 +31,27 @@ export default function PrintAnimation({
   const [printerShaking, setPrinterShaking] = useState(false);
   const [memoryUrl, setMemoryUrl] = useState<string>('');
   const [showQR, setShowQR] = useState(true);
+  const [floatingHearts, setFloatingHearts] = useState<{ id: number; char: string; x: number }[]>([]);
 
   useEffect(() => {
-    // 1. Simulate printing animation
     const t1 = setTimeout(() => setPrinterShaking(true), 400);
     const t2 = setTimeout(() => setPrinterShaking(false), 1200);
     const t3 = setTimeout(() => setPhase('ready'), 2400);
     const t4 = setTimeout(() => setShowActions(true), 3000);
 
-    // 2. Save memory in background and generate QR link
+    // Emit floating hearts during printing
+    let heartId = 0;
+    const heartInterval = setInterval(() => {
+      heartId++;
+      const char = HEARTS[heartId % HEARTS.length];
+      setFloatingHearts((prev) => [
+        ...prev.slice(-6),
+        { id: heartId, char, x: 30 + Math.random() * 40 },
+      ]);
+    }, 400);
+
+    setTimeout(() => clearInterval(heartInterval), 2600);
+
     if (stripDataUrl) {
       saveMemory(stripDataUrl, { caption, frame, frameColor }).then(({ url }) => {
         setMemoryUrl(url);
@@ -44,16 +59,14 @@ export default function PrintAnimation({
     }
 
     return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t4);
+      clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4);
+      clearInterval(heartInterval);
     };
   }, [stripDataUrl, caption, frame, frameColor]);
 
   const handleDownload = () => {
     const link = document.createElement('a');
-    link.download = `snappy-${Date.now()}.png`;
+    link.download = `memory-${Date.now()}.png`;
     link.href = stripDataUrl;
     link.click();
   };
@@ -62,7 +75,7 @@ export default function PrintAnimation({
     const win = window.open('', '_blank');
     if (!win) return;
     win.document.write(`
-      <html><head><title>Snappy Photo Strip</title>
+      <html><head><title>Photobooth Memory ♡</title>
       <style>body{margin:0;display:flex;justify-content:center;} img{max-height:100vh;}</style>
       </head><body onload="window.print();window.close()">
       <img src="${stripDataUrl}" />
@@ -74,10 +87,10 @@ export default function PrintAnimation({
   const handleShare = async () => {
     if (navigator.share) {
       const blob = await (await fetch(stripDataUrl)).blob();
-      const file = new File([blob], 'snappy-strip.png', { type: 'image/png' });
+      const file = new File([blob], 'memory-strip.png', { type: 'image/png' });
       await navigator.share({
         files: [file],
-        title: 'My Snappy Photo Strip 📸',
+        title: 'Our Photobooth Memory ♡',
         url: memoryUrl || window.location.href,
       }).catch(() => {});
     } else {
@@ -86,48 +99,96 @@ export default function PrintAnimation({
   };
 
   return (
-    <div className="flex flex-col items-center gap-5 py-2 text-center w-full max-w-sm mx-auto">
-      {/* Printer */}
+    <div className="flex flex-col items-center gap-5 py-4 text-center w-full max-w-sm mx-auto relative">
+
+      {/* Floating hearts animation */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 20 }}>
+        <AnimatePresence>
+          {floatingHearts.map((h) => (
+            <motion.span
+              key={h.id}
+              initial={{ opacity: 1, y: 60, x: `${h.x}%` }}
+              animate={{ opacity: 0, y: -20, x: `${h.x + (Math.random() - 0.5) * 10}%` }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.4, ease: 'easeOut' }}
+              style={{
+                position: 'absolute',
+                bottom: '120px',
+                fontSize: '1rem',
+                color: '#F7C8D5',
+                fontFamily: 'var(--font-cute)',
+              }}
+            >
+              {h.char}
+            </motion.span>
+          ))}
+        </AnimatePresence>
+      </div>
+
+      {/* Pastel Printer */}
       <motion.div
         animate={printerShaking ? { x: [-2, 2, -2, 2, 0] } : {}}
         transition={{ duration: 0.15, repeat: printerShaking ? 4 : 0 }}
-        className="flex flex-col items-center"
+        className="flex flex-col items-center relative z-10"
       >
         <div className="relative flex flex-col items-center" style={{ width: 140 }}>
-          {/* Printer body */}
+          {/* Printer body — pastel pink rounded rectangle */}
           <div
             className="rounded-2xl flex items-center justify-center relative"
             style={{
-              width: 120,
-              height: 65,
-              background: 'linear-gradient(135deg,#FFE4EC,#FFD0DC)',
-              border: '3px solid rgba(255,143,171,0.5)',
-              boxShadow: '0 4px 16px rgba(255,143,171,0.3)',
+              width: 124,
+              height: 68,
+              background: 'linear-gradient(135deg, #FADDE5, #F7C8D5)',
+              border: '1.5px solid rgba(242,175,194,0.6)',
+              boxShadow: '0 4px 18px rgba(247,200,213,0.35)',
               zIndex: 2,
             }}
           >
-            <span style={{ fontSize: '2.3rem' }}>🖨️</span>
+            {/* Printer label */}
+            <div className="flex flex-col items-center gap-0.5">
+              <span style={{ fontSize: '1.6rem' }}>🖨️</span>
+              <span
+                className="font-cute text-[9px]"
+                style={{ color: '#D98FA8', letterSpacing: '0.05em' }}
+              >
+                printing…
+              </span>
+            </div>
+
             {/* Paper slot */}
             <div
               style={{
                 position: 'absolute',
-                bottom: -3,
+                bottom: -4,
                 left: '50%',
                 transform: 'translateX(-50%)',
-                width: 70,
+                width: 72,
                 height: 6,
-                background: 'rgba(255,143,171,0.6)',
+                background: 'rgba(242,175,194,0.55)',
                 borderRadius: 3,
               }}
             />
+
+            {/* Tiny heart decoration on printer */}
+            <span
+              style={{
+                position: 'absolute',
+                top: 4,
+                right: 6,
+                fontSize: '0.6rem',
+                color: '#F2AFC2',
+              }}
+            >
+              ♡
+            </span>
           </div>
 
           {/* Paper coming out */}
           <div
             style={{
               overflow: 'hidden',
-              width: 75,
-              maxHeight: phase === 'printing' ? 140 : 180,
+              width: 78,
+              maxHeight: phase === 'printing' ? 140 : 185,
               transition: 'max-height 1.5s ease',
             }}
           >
@@ -140,8 +201,9 @@ export default function PrintAnimation({
               <div
                 className="rounded overflow-hidden"
                 style={{
-                  border: '2px solid rgba(255,143,171,0.4)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  border: '1.5px solid rgba(216,191,199,0.5)',
+                  boxShadow: '0 4px 14px rgba(247,200,213,0.2)',
+                  background: 'white',
                 }}
               >
                 {stripDataUrl && (
@@ -165,26 +227,22 @@ export default function PrintAnimation({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="flex flex-col items-center gap-1"
+            className="flex flex-col items-center gap-2"
           >
-            <div className="flex items-center gap-2">
-              <motion.div
-                className="w-2 h-2 rounded-full bg-pink-400"
-                animate={{ scale: [1, 1.3, 1] }}
-                transition={{ duration: 0.6, repeat: Infinity }}
-              />
-              <motion.div
-                className="w-2 h-2 rounded-full bg-purple-400"
-                animate={{ scale: [1, 1.3, 1] }}
-                transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }}
-              />
-              <motion.div
-                className="w-2 h-2 rounded-full bg-pink-300"
-                animate={{ scale: [1, 1.3, 1] }}
-                transition={{ duration: 0.6, repeat: Infinity, delay: 0.4 }}
-              />
+            <div className="flex items-center gap-1.5">
+              {['#F7C8D5', '#DDF5F7', '#D8F5D2'].map((c, i) => (
+                <motion.div
+                  key={c}
+                  className="w-2 h-2 rounded-full"
+                  style={{ background: c }}
+                  animate={{ scale: [1, 1.4, 1] }}
+                  transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.18 }}
+                />
+              ))}
             </div>
-            <p className="font-display text-xl text-pink-400">Printing your memories… ♡</p>
+            <p className="font-display text-lg" style={{ color: '#D98FA8' }}>
+              Printing your memories… ♡
+            </p>
           </motion.div>
         ) : (
           <motion.div
@@ -201,7 +259,9 @@ export default function PrintAnimation({
             >
               🎉
             </motion.span>
-            <p className="font-display text-2xl text-pink-500">Your photo is ready! ✨</p>
+            <p className="font-display text-xl" style={{ color: '#D98FA8' }}>
+              Your strip is ready! ✿
+            </p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -230,10 +290,10 @@ export default function PrintAnimation({
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={handleDownload}
-                className="btn-snappy justify-center py-2.5 text-sm"
+                className="btn-scrapbook justify-center py-2.5 text-sm"
               >
                 <Download className="w-4 h-4" />
-                Download
+                Download ♡
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.03 }}
@@ -266,8 +326,12 @@ export default function PrintAnimation({
               </button>
             </div>
 
-            <button className="btn-ghost w-full mt-1" onClick={onBack}>
-              ← Make another
+            <button
+              className="btn-ghost w-full mt-1 font-cute"
+              style={{ color: '#C4A8B4', fontSize: '0.85rem' }}
+              onClick={onBack}
+            >
+              ← make another memory ♡
             </button>
           </motion.div>
         )}

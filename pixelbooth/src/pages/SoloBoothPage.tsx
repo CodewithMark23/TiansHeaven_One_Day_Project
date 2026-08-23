@@ -95,19 +95,19 @@ export default function SoloBoothPage() {
   // ── Name gate ─────────────────────────────────────────────────────────────
   if (!nameSet) {
     return (
-      <div className="bg-snappy min-h-dvh flex items-center justify-center p-4">
+      <div className="bg-scrapbook min-h-dvh flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="card-white p-8 w-full max-w-sm text-center"
+          className="card-stationery p-8 w-full max-w-sm text-center"
         >
           <div className="text-5xl mb-4">📷</div>
-          <h1 className="font-display text-3xl mb-1" style={{ color: '#C0304F' }}>Solo Booth</h1>
-          <p className="text-gray-400 text-sm mb-6">What should we call you? 🌸</p>
+          <h1 className="font-display text-3xl mb-1" style={{ color: '#D98FA8' }}>Solo Booth</h1>
+          <p className="font-cute text-sm mb-6" style={{ color: '#B8A0A8' }}>What should we call you? 🌸</p>
           <input
             type="text"
             placeholder="Your name..."
-            className="cute-input mb-4 text-center"
+            className="cute-input mb-4 text-center font-cute"
             value={userName}
             onChange={(e) => setUserName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && userName.trim()) setNameSet(true); }}
@@ -118,14 +118,14 @@ export default function SoloBoothPage() {
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
-            className="btn-snappy w-full"
+            className="btn-scrapbook w-full"
             onClick={() => setNameSet(true)}
             disabled={!userName.trim()}
             id="btn-enter-booth"
           >
-            Enter Booth ✨
+            Enter Booth ♡
           </motion.button>
-          <button className="btn-ghost mt-3 w-full" onClick={() => navigate('/')}>
+          <button className="btn-ghost mt-3 w-full font-cute" onClick={() => navigate('/')}>
             <ArrowLeft className="w-4 h-4" /> Back
           </button>
         </motion.div>
@@ -136,16 +136,16 @@ export default function SoloBoothPage() {
   const currentIdx = stepIndex(step);
 
   return (
-    <div className="bg-snappy-soft min-h-dvh flex flex-col">
+    <div className="bg-scrapbook-soft min-h-dvh flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-30 px-4 py-3 flex items-center justify-between"
-        style={{ background: 'rgba(255,240,245,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,182,193,0.3)' }}
+        style={{ background: 'rgba(255,249,233,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(216,191,199,0.3)' }}
       >
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={goBack}
-          className="btn-ghost"
+          className="btn-ghost font-cute"
         >
           <ArrowLeft className="w-4 h-4" />
           {step === 'setup' ? 'Home' : 'Back'}
@@ -182,11 +182,11 @@ export default function SoloBoothPage() {
             {step === 'setup' && (
               <div className="max-w-2xl mx-auto">
                 <div className="text-center mb-6">
-                  <h1 className="font-display text-3xl mb-1" style={{ color: '#C0304F' }}>
+                  <h1 className="font-display text-3xl mb-1" style={{ color: '#D98FA8' }}>
                     Booth Setup 🎀
                   </h1>
-                  <p className="text-gray-400 text-sm">
-                    Hey {userName}! Customize your session before we start. ✨
+                  <p className="font-cute text-sm" style={{ color: '#B8A0A8' }}>
+                    Hey {userName}! Customize your session before we start. ♡
                   </p>
                 </div>
 
@@ -218,7 +218,7 @@ export default function SoloBoothPage() {
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className="btn-snappy w-full mt-6"
+                  className="btn-scrapbook w-full mt-6"
                   onClick={goNext}
                 >
                   Start Session 📸
