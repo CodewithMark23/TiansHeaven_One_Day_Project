@@ -21,7 +21,7 @@ export default function LDRJoinPage() {
     const session = await joinBooth(code, guestName.trim());
     setIsJoining(false);
     if (session) {
-      navigate(`/ldr/booth/${code}`, { state: { session, role: 'guest', userName: guestName } });
+      navigate(`/ldr/booth/${code}`, { state: { role: 'guest', userName: guestName.trim() } });
     }
   };
 

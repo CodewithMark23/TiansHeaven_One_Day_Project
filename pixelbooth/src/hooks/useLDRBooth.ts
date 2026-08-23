@@ -36,6 +36,7 @@ export interface UseLDRBoothReturn {
   retakeRequest: RetakeRequestInfo | null;
   retakeResponse: RetakeResponseInfo | null;
   error: string | null;
+  connectToBooth: (code: string, currentRole: LDRRole, currentUserName: string) => Promise<boolean>;
   createBooth: (hostName: string) => Promise<string | null>;
   joinBooth: (code: string, guestName: string) => Promise<boolean>;
   broadcastEvent: (event: LDRRealtimeEvent) => void;
@@ -83,14 +84,14 @@ export function useLDRBooth(): UseLDRBoothReturn {
 
   const broadcastEvent = useCallback(
     (event: LDRRealtimeEvent) => {
-      if (!channelRef.current || !session) return;
+      if (!channelRef.current) return;
       channelRef.current.send({
         type: 'broadcast',
         event: event.type,
         payload: event.payload ?? {},
       });
     },
-    [session]
+    []
   );
 
   const sendWebRTCSignal = useCallback(
@@ -115,7 +116,6 @@ export function useLDRBooth(): UseLDRBoothReturn {
 
   const sendSyncCountdown = useCallback(
     (slotNumber: number, duration: number = 3) => {
-      // 3.2 seconds into the future to allow for network packet transmission
       const targetTimestamp = Date.now() + duration * 1000 + 200;
       const info: SyncCountdownInfo = { targetTimestamp, slotNumber, duration };
       setSyncCountdown(info);
@@ -133,13 +133,11 @@ export function useLDRBooth(): UseLDRBoothReturn {
 
   const sendJointPhoto = useCallback(
     async (slotNumber: number, dataUrl: string, senderRole: 'host' | 'guest') => {
-      // 1. Broadcast to partner immediately
       broadcastEvent({
         type: 'JOINT_PHOTO_UPLOADED',
         payload: { slotNumber, dataUrl, senderRole },
       });
 
-      // 2. Update local joint capture state
       setJointCaptures((prev) => {
         const next = [...prev];
         const idx = slotNumber - 1;
@@ -148,7 +146,6 @@ export function useLDRBooth(): UseLDRBoothReturn {
           if (senderRole === 'host') slot.hostPhoto = dataUrl;
           else slot.guestPhoto = dataUrl;
 
-          // If both photos present, generate side-by-side composite
           if (slot.hostPhoto && slot.guestPhoto) {
             createSideBySideComposite(
               slot.hostPhoto,
@@ -188,7 +185,6 @@ export function useLDRBooth(): UseLDRBoothReturn {
         payload: { accepted, position },
       });
       if (accepted) {
-        // Reset that specific slot in jointCaptures
         setJointCaptures((prev) => {
           const next = [...prev];
           const idx = position - 1;
@@ -253,41 +249,79 @@ export function useLDRBooth(): UseLDRBoothReturn {
   }, [session?.id]);
 
   const setupChannel = useCallback(
-    (code: string, currentRole: LDRRole, sessionData: LDRBoothSession) => {
+    (code: string, currentRole: LDRRole, currentUserName: string, sessionData: LDRBoothSession) => {
+      const normalizedCode = code.trim().toUpperCase();
+
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
       }
 
-      const channel = supabase.channel(`booth:${code}`, {
-        config: { broadcast: { self: false } },
+      const channel = supabase.channel(`booth:${normalizedCode}`, {
+        config: {
+          broadcast: { self: false },
+          presence: { key: currentRole },
+        },
       });
 
       channel
         .on('presence', { event: 'sync' }, () => {
           const state = channel.presenceState();
-          const count = Object.keys(state).length;
-          setIsPartnerOnline(count > 1);
+          const presences = Object.values(state).flat() as any[];
+          const hasPartner = presences.some((p) => p.user !== currentRole) || presences.length > 1;
+          setIsPartnerOnline(hasPartner);
+
+          const partner = presences.find((p) => p.user !== currentRole);
+          if (partner?.name) {
+            setSession((prev) => {
+              if (!prev) return prev;
+              return currentRole === 'host'
+                ? { ...prev, guestName: partner.name }
+                : { ...prev, hostName: partner.name };
+            });
+          }
         })
-        .on('presence', { event: 'join' }, () => {
+        .on('presence', { event: 'join' }, ({ newPresences }) => {
           setIsPartnerOnline(true);
+          const partner = (newPresences as any[]).find((p) => p.user !== currentRole);
+          if (partner?.name) {
+            setSession((prev) => {
+              if (!prev) return prev;
+              return currentRole === 'host'
+                ? { ...prev, guestName: partner.name }
+                : { ...prev, hostName: partner.name };
+            });
+          }
         })
         .on('presence', { event: 'leave' }, () => {
           const state = channel.presenceState();
-          setIsPartnerOnline(Object.keys(state).length > 1);
+          const presences = Object.values(state).flat() as any[];
+          const hasPartner = presences.some((p) => p.user !== currentRole);
+          setIsPartnerOnline(hasPartner);
           setIsPartnerReady(false);
         })
-        .on('broadcast', { event: 'PARTNER_JOINED' }, () => {
-          setSession((prev) => (prev ? { ...prev, status: 'active' } : prev));
+        .on('broadcast', { event: 'PARTNER_JOINED' }, ({ payload }) => {
+          setIsPartnerOnline(true);
+          if (payload?.name) {
+            setSession((prev) => {
+              if (!prev) return prev;
+              return currentRole === 'host'
+                ? { ...prev, guestName: payload.name as string, status: 'active' }
+                : { ...prev, hostName: payload.name as string, status: 'active' };
+            });
+          }
         })
         .on('broadcast', { event: 'WEBRTC_SIGNAL' }, ({ payload }) => {
+          setIsPartnerOnline(true);
           if (payload?.signal) {
             setIncomingWebRTCSignal(payload.signal as WebRTCSignal);
           }
         })
         .on('broadcast', { event: 'READY_CHANGE' }, ({ payload }) => {
+          setIsPartnerOnline(true);
           setIsPartnerReady(!!payload?.isReady);
         })
         .on('broadcast', { event: 'START_SYNC_COUNTDOWN' }, ({ payload }) => {
+          setIsPartnerOnline(true);
           if (payload?.targetTimestamp && payload?.slotNumber) {
             setSyncCountdown({
               targetTimestamp: payload.targetTimestamp as number,
@@ -297,6 +331,7 @@ export function useLDRBooth(): UseLDRBoothReturn {
           }
         })
         .on('broadcast', { event: 'JOINT_PHOTO_UPLOADED' }, ({ payload }) => {
+          setIsPartnerOnline(true);
           if (payload?.slotNumber && payload?.dataUrl && payload?.senderRole) {
             const sNum = payload.slotNumber as number;
             const sRole = payload.senderRole as 'host' | 'guest';
@@ -331,6 +366,7 @@ export function useLDRBooth(): UseLDRBoothReturn {
           }
         })
         .on('broadcast', { event: 'RETAKE_REQUEST' }, ({ payload }) => {
+          setIsPartnerOnline(true);
           if (payload?.requesterName && typeof payload?.position === 'number') {
             setRetakeRequest({
               requesterName: payload.requesterName as string,
@@ -339,6 +375,7 @@ export function useLDRBooth(): UseLDRBoothReturn {
           }
         })
         .on('broadcast', { event: 'RETAKE_RESPONSE' }, ({ payload }) => {
+          setIsPartnerOnline(true);
           if (typeof payload?.accepted === 'boolean' && typeof payload?.position === 'number') {
             setRetakeResponse({
               accepted: payload.accepted as boolean,
@@ -357,11 +394,13 @@ export function useLDRBooth(): UseLDRBoothReturn {
           }
         })
         .on('broadcast', { event: 'PHOTO_TAKEN' }, ({ payload }) => {
+          setIsPartnerOnline(true);
           if (payload?.photo) {
             addPhoto(payload.photo as CapturedPhoto);
           }
         })
         .on('broadcast', { event: 'FLASH' }, () => {
+          setIsPartnerOnline(true);
           setPartnerFlashing(true);
           setTimeout(() => setPartnerFlashing(false), 600);
         })
@@ -377,22 +416,75 @@ export function useLDRBooth(): UseLDRBoothReturn {
             setIsConnected(true);
             await channel.track({
               user: currentRole,
+              name: currentUserName,
               online_at: new Date().toISOString(),
             });
 
-            if (currentRole === 'guest') {
-              channel.send({
-                type: 'broadcast',
-                event: 'PARTNER_JOINED',
-                payload: { guestName: sessionData.guestName },
-              });
-            }
+            // Announce presence immediately via broadcast
+            channel.send({
+              type: 'broadcast',
+              event: 'PARTNER_JOINED',
+              payload: { name: currentUserName, role: currentRole },
+            });
           }
         });
 
       channelRef.current = channel;
     },
     [addPhoto]
+  );
+
+  const connectToBooth = useCallback(
+    async (code: string, currentRole: LDRRole, currentUserName: string): Promise<boolean> => {
+      setError(null);
+      const normalizedCode = code.trim().toUpperCase();
+      let foundSession: LDRBoothSession | null = null;
+
+      if (hasSupabaseConfig) {
+        const { data: dbData } = await supabase
+          .from('booths')
+          .select('*')
+          .eq('code', normalizedCode)
+          .maybeSingle();
+
+        if (dbData) {
+          foundSession = {
+            id: dbData.id,
+            code: dbData.code,
+            hostName: dbData.host_name,
+            guestName: dbData.guest_name || (currentRole === 'guest' ? currentUserName : undefined),
+            status: 'active',
+            photos: [],
+            createdAt: dbData.created_at,
+          };
+
+          if (currentRole === 'guest') {
+            await supabase
+              .from('booths')
+              .update({ guest_name: currentUserName, status: 'active' })
+              .eq('id', dbData.id);
+          }
+        }
+      }
+
+      if (!foundSession) {
+        foundSession = {
+          id: nanoid(),
+          code: normalizedCode,
+          hostName: currentRole === 'host' ? currentUserName : 'Partner',
+          guestName: currentRole === 'guest' ? currentUserName : undefined,
+          status: 'active',
+          photos: [],
+          createdAt: new Date().toISOString(),
+        };
+      }
+
+      setSession(foundSession);
+      setRole(currentRole);
+      setupChannel(normalizedCode, currentRole, currentUserName, foundSession);
+      return true;
+    },
+    [setupChannel]
   );
 
   const createBooth = useCallback(
@@ -429,7 +521,7 @@ export function useLDRBooth(): UseLDRBoothReturn {
 
       setSession(newSession);
       setRole('host');
-      setupChannel(code, 'host', newSession);
+      setupChannel(code, 'host', hostName, newSession);
       return code;
     },
     [setupChannel]
@@ -437,69 +529,9 @@ export function useLDRBooth(): UseLDRBoothReturn {
 
   const joinBooth = useCallback(
     async (code: string, guestName: string): Promise<boolean> => {
-      let foundSession: LDRBoothSession | null = null;
-
-      if (hasSupabaseConfig) {
-        const { data, error: dbError } = await supabase
-          .from('booths')
-          .select('*')
-          .eq('code', code.toUpperCase())
-          .maybeSingle();
-
-        if (dbError || !data) {
-          setError('Booth not found. Check the code and try again!');
-          return false;
-        }
-
-        const { data: existingPhotos } = await supabase
-          .from('photos')
-          .select('*')
-          .eq('booth_id', data.id)
-          .order('position', { ascending: true });
-
-        const mappedPhotos: CapturedPhoto[] = (existingPhotos || []).map((p) => ({
-          id: p.id,
-          dataUrl: p.image_url,
-          filter: p.filter,
-          takerName: p.taker_name,
-          position: p.position,
-          timestamp: new Date(p.created_at).getTime(),
-        }));
-
-        foundSession = {
-          id: data.id,
-          code: data.code,
-          hostName: data.host_name,
-          guestName,
-          status: 'active',
-          photos: mappedPhotos,
-          createdAt: data.created_at,
-        };
-
-        await supabase
-          .from('booths')
-          .update({ guest_name: guestName, status: 'active' })
-          .eq('id', data.id);
-      } else {
-        foundSession = {
-          id: nanoid(),
-          code: code.toUpperCase(),
-          hostName: 'Partner',
-          guestName,
-          status: 'active',
-          photos: [],
-          createdAt: new Date().toISOString(),
-        };
-      }
-
-      setSession(foundSession);
-      setRole('guest');
-      if (foundSession) {
-        setupChannel(foundSession.code, 'guest', foundSession);
-      }
-      return true;
+      return connectToBooth(code, 'guest', guestName);
     },
-    [setupChannel]
+    [connectToBooth]
   );
 
   const leaveBooth = useCallback(() => {
@@ -539,6 +571,7 @@ export function useLDRBooth(): UseLDRBoothReturn {
     retakeRequest,
     retakeResponse,
     error,
+    connectToBooth,
     createBooth,
     joinBooth,
     broadcastEvent,

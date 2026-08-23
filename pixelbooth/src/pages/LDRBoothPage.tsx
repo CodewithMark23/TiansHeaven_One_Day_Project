@@ -32,17 +32,17 @@ export default function LDRBoothPage() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const state = location.state as LocationState;
-
-  const userName = state?.userName ?? 'You';
-  const role = (state?.role as 'host' | 'guest') ?? 'host';
+  const state = location.state as LocationState | null;
+  const [userName, setUserName] = useState(state?.userName || '');
+  const [nameEntered, setNameEntered] = useState(!!state?.userName);
+  const role = state?.role ?? (state?.userName ? 'host' : 'guest');
 
   const camera = useCamera();
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
   const {
     session,
-    joinBooth,
+    connectToBooth,
     sendWebRTCSignal,
     incomingWebRTCSignal,
     sendReadyState,
@@ -102,15 +102,13 @@ export default function LDRBoothPage() {
   const [isGeneratingMemory, setIsGeneratingMemory] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
 
-  // Reconnect if refreshed
+  // Connect to the Supabase Realtime channel on mount
   useEffect(() => {
-    if (!session && code) {
-      if (role === 'guest') {
-        joinBooth(code, userName);
-      }
+    if (code) {
+      connectToBooth(code, role, userName);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [code, role, userName]);
 
   // Compute completed joint photo slots
   const completedSlots = jointCaptures.filter((s) => s.compositePhoto !== null);
@@ -251,6 +249,47 @@ export default function LDRBoothPage() {
       position: s.slotNumber,
       timestamp: Date.now(),
     }));
+
+  if (!nameEntered) {
+    return (
+      <div className="bg-snappy min-h-dvh flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="card-white p-8 w-full max-w-sm text-center"
+        >
+          <div className="text-4xl mb-3">💕</div>
+          <h2 className="font-display text-2xl text-purple-600 mb-1">Enter LDR Booth</h2>
+          <p className="text-xs text-gray-400 mb-4">
+            Joining Booth Code: <span className="font-bold text-pink-500">{code}</span>
+          </p>
+          <input
+            type="text"
+            placeholder="Your name..."
+            className="cute-input mb-3 text-center"
+            value={userName}
+            onChange={(e) => setUserName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && userName.trim()) setNameEntered(true);
+            }}
+            autoFocus
+          />
+          <button
+            className="btn-snappy w-full mb-2"
+            onClick={() => {
+              if (userName.trim()) setNameEntered(true);
+            }}
+            disabled={!userName.trim()}
+          >
+            Enter Booth ✨
+          </button>
+          <button className="btn-ghost w-full" onClick={() => navigate('/ldr')}>
+            <ArrowLeft className="w-4 h-4" /> Back
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-dvh bg-ldr-gradient flex flex-col">
