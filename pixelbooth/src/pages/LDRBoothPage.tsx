@@ -3,7 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, RefreshCw, Heart, Wifi, WifiOff,
-  CheckCircle2, Sparkles, Check, X, Video, VideoOff
+  CheckCircle2, Sparkles, Video, VideoOff, RotateCcw
 } from 'lucide-react';
 import type { FilterType, Sticker, CapturedPhoto } from '../types';
 import { useCamera } from '../hooks/useCamera';
@@ -54,14 +54,10 @@ export default function LDRBoothPage() {
     syncTrigger,
     recordAndSyncJointPhoto,
     jointCaptures,
-    sendRetakeRequest,
-    respondRetake,
-    clearRetakeStates,
+    retakeSlot,
     isPartnerOnline,
     isPartnerReady,
     partnerFlashing,
-    retakeRequest,
-    retakeResponse,
     clearSessionPhotos,
     leaveBooth,
   } = useLDRBooth();
@@ -79,7 +75,7 @@ export default function LDRBoothPage() {
     onSendSignal: sendWebRTCSignal,
   });
 
-  // Wire direct signal listener bypassing React state batching
+  // Wire direct signal listener
   useEffect(() => {
     registerWebRTCSignalListener(handleIncomingSignal);
     return () => {
@@ -118,7 +114,6 @@ export default function LDRBoothPage() {
   const [isMyReady, setIsMyReady] = useState(false);
   const [displayCountdown, setDisplayCountdown] = useState<number | null>(null);
   const [isFlashing, setIsFlashing] = useState(false);
-  const [retakeNotification, setRetakeNotification] = useState<string | null>(null);
   const [compositePreviews, setCompositePreviews] = useState<(string | null)[]>([null, null, null, null]);
 
   // QR Code & Memory URL state
@@ -161,11 +156,13 @@ export default function LDRBoothPage() {
     generateAllPreviews();
   }, [jointCaptures, session?.hostName, session?.guestName]);
 
-  const completedSlots = jointCaptures.filter((s) => s.compositePhoto !== null);
+  // Count fully paired slots (both host & guest present)
+  const completedCount = jointCaptures.filter((s) => s.hostPhoto && s.guestPhoto).length;
+  // First slot that is missing either host or guest photo
   const nextSlotNumber = Math.min(MAX_PHOTOS, jointCaptures.findIndex((s) => !s.hostPhoto || !s.guestPhoto) + 1 || 1);
-  const isStripComplete = completedSlots.length >= MAX_PHOTOS;
+  const isStripComplete = completedCount >= MAX_PHOTOS;
 
-  // ── Synchronized Countdown Logic (Zero Client Clock Skew) ───────────────
+  // ── Synchronized Countdown Logic (Guaranteed Both Ready) ─────────────────
   const activeTriggerIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -175,6 +172,7 @@ export default function LDRBoothPage() {
     activeTriggerIdRef.current = syncTrigger.triggerId;
     const { duration, slotNumber } = syncTrigger;
 
+    console.log(`[LDRBooth] Starting synchronized countdown (${duration}s) for Slot #${slotNumber}...`);
     let current = duration;
     setDisplayCountdown(current);
 
@@ -192,8 +190,9 @@ export default function LDRBoothPage() {
         setIsFlashing(true);
         setTimeout(() => setIsFlashing(false), 500);
 
-        // Local high-res capture from device's own webcam
+        // Local high-res capture from device's own webcam with chosen filter baked in
         if (camera.videoRef.current) {
+          console.log(`[LDRBooth] (${role}) Capturing local camera frame with filter: ${filter}...`);
           const myDataUrl = captureFrame(camera.videoRef.current, filter, true);
           await recordAndSyncJointPhoto(slotNumber, myDataUrl, role);
         }
@@ -206,39 +205,28 @@ export default function LDRBoothPage() {
     return () => clearInterval(interval);
   }, [syncTrigger, camera.videoRef, filter, role, recordAndSyncJointPhoto, clearSyncTrigger, sendReadyState]);
 
-  // Handle Ready Toggle
+  // ── Ready Gating: Countdown ONLY triggers when BOTH are ready ───────────
   const handleToggleReady = () => {
+    if (isStripComplete || displayCountdown !== null) return;
     const next = !isMyReady;
     setIsMyReady(next);
     sendReadyState(next);
 
-    // If partner is already ready, trigger the synchronized countdown
+    // If partner is ALREADY ready and we just clicked ready -> Trigger synchronized countdown!
     if (next && isPartnerReady && !isStripComplete && displayCountdown === null) {
+      console.log(`[LDRBooth] Both partners ready! Triggering sync countdown for Slot #${nextSlotNumber}...`);
       triggerSyncCountdown(nextSlotNumber, 3);
     }
   };
 
-  // Manual Trigger
   const handleManualTrigger = () => {
-    if (isStripComplete || displayCountdown !== null) return;
-    triggerSyncCountdown(nextSlotNumber, 3);
-  };
-
-  // Listen for retake responses
-  useEffect(() => {
-    if (retakeResponse) {
-      if (retakeResponse.accepted) {
-        setRetakeNotification(`Partner accepted retake for Slot #${retakeResponse.position}! 🎉`);
-      } else {
-        setRetakeNotification(`Partner chose to keep Slot #${retakeResponse.position}. ♡`);
-      }
-      const t = setTimeout(() => {
-        setRetakeNotification(null);
-        clearRetakeStates();
-      }, 4000);
-      return () => clearTimeout(t);
+    // If both ready, trigger countdown; otherwise toggle ready
+    if (isPartnerReady && isMyReady && !isStripComplete && displayCountdown === null) {
+      triggerSyncCountdown(nextSlotNumber, 3);
+    } else {
+      handleToggleReady();
     }
-  }, [retakeResponse, clearRetakeStates]);
+  };
 
   const handleAddSticker = (emoji: string) => {
     const newSticker: Sticker = {
@@ -255,21 +243,24 @@ export default function LDRBoothPage() {
 
   const handleClearAll = () => {
     clearSessionPhotos();
+    setIsMyReady(false);
+    sendReadyState(false);
     setMemoryUrl('');
     setShowQRModal(false);
   };
 
-  const handleRequestRetake = (slotNum: number) => {
-    sendRetakeRequest(userName, slotNum);
-    setRetakeNotification(`Retake requested for Slot #${slotNum}. Waiting for ${partnerName}…`);
+  const handleRetakeSlot = async (slotNum: number) => {
+    setIsMyReady(false);
+    sendReadyState(false);
+    await retakeSlot(slotNum);
   };
 
   // Generate QR Memory when strip finishes
   const handleGenerateQRMemory = async () => {
-    if (completedSlots.length === 0 || isGeneratingMemory) return;
+    const lastComposite = compositePreviews[completedCount - 1];
+    if (!lastComposite || isGeneratingMemory) return;
     setIsGeneratingMemory(true);
     try {
-      const lastComposite = completedSlots[completedSlots.length - 1].compositePhoto!;
       const { url } = await saveMemory(lastComposite, {
         caption: `LDR Memory with ${partnerName} ♡`,
         frame: 'side-by-side',
@@ -401,61 +392,13 @@ export default function LDRBoothPage() {
             )}
           </AnimatePresence>
 
-          {completedSlots.length > 0 && (
-            <button className="btn-ghost text-xs" onClick={handleClearAll} title="Clear photos">
+          {completedCount > 0 && (
+            <button className="btn-ghost text-xs" onClick={handleClearAll} title="Clear all photos">
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
       </motion.header>
-
-      {/* Retake Request Alert Modal */}
-      <AnimatePresence>
-        {retakeRequest && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          >
-            <div className="card-white p-6 max-w-sm w-full text-center flex flex-col items-center gap-3">
-              <span className="text-4xl">📸</span>
-              <h3 className="font-display text-xl text-pink-500">Retake Request</h3>
-              <p className="text-sm text-gray-500">
-                <span className="font-bold text-gray-700">{retakeRequest.requesterName}</span> wants to retake Photo #{retakeRequest.position}!
-              </p>
-              <div className="grid grid-cols-2 gap-2 w-full mt-2">
-                <button
-                  className="btn-snappy justify-center py-2 text-xs"
-                  onClick={() => respondRetake(true, retakeRequest.position)}
-                >
-                  <Check className="w-3.5 h-3.5" /> Accept Retake
-                </button>
-                <button
-                  className="btn-outline justify-center py-2 text-xs"
-                  onClick={() => respondRetake(false, retakeRequest.position)}
-                >
-                  <X className="w-3.5 h-3.5" /> Keep Photo
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Notification Toast */}
-      <AnimatePresence>
-        {retakeNotification && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="fixed top-16 left-1/2 -translate-x-1/2 z-50 badge badge-pink shadow-lg py-2 px-4 text-xs font-semibold"
-          >
-            {retakeNotification}
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Main Booth Content */}
       <div className="container-snappy py-4 flex-1 flex flex-col justify-center">
@@ -523,7 +466,7 @@ export default function LDRBoothPage() {
                     <div className="absolute inset-0 bg-white z-30 animate-pulse" />
                   )}
 
-                  {/* WebRTC Live Video Element (Always in DOM with ref attachment) */}
+                  {/* WebRTC Live Video Element */}
                   <video
                     ref={attachRemoteStream}
                     autoPlay
@@ -608,18 +551,28 @@ export default function LDRBoothPage() {
                   }`}
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  {isMyReady ? '✓ You are Ready!' : "I'm Ready ♡"}
+                  {isStripComplete
+                    ? 'All 4 photos taken! ♡'
+                    : isMyReady
+                    ? '✓ You are Ready!'
+                    : "I'm Ready ♡"}
                 </motion.button>
 
                 <span className="text-xs text-gray-500">
-                  {isPartnerReady ? '🌸 Partner is ready! Click ready to snap.' : 'Click Ready when you are posed.'}
+                  {isStripComplete
+                    ? 'Complete! View or share your strip on the right ✨'
+                    : isPartnerReady && isMyReady
+                    ? '🌸 Both ready! Counting down…'
+                    : isPartnerReady
+                    ? '🌸 Partner is ready! Click ready to snap together.'
+                    : 'Click Ready when you are posed.'}
                 </span>
               </div>
 
               <CaptureButton
                 onClick={handleManualTrigger}
                 disabled={!camera.isReady || isStripComplete || displayCountdown !== null}
-                photosLeft={Math.max(0, MAX_PHOTOS - completedSlots.length)}
+                photosLeft={Math.max(0, MAX_PHOTOS - completedCount)}
               />
             </div>
 
@@ -636,7 +589,7 @@ export default function LDRBoothPage() {
                         : 'text-gray-500 hover:text-gray-800'
                     }`}
                   >
-                    {tab === 'filters' ? '🎨 Filters' : '✨ Stickers'}
+                    {tab === 'filters' ? '🎨 Filters (For You)' : '✨ Stickers'}
                   </button>
                 ))}
               </div>
@@ -662,7 +615,7 @@ export default function LDRBoothPage() {
               <div className="flex items-center gap-2 mb-3">
                 <Heart className="w-4 h-4 text-pink-400 fill-pink-200" />
                 <span className="text-sm font-semibold text-gray-700">Side-by-Side Strip</span>
-                <span className="badge badge-lavender text-xs">{completedSlots.length}/4</span>
+                <span className="badge badge-lavender text-xs">{completedCount}/4</span>
               </div>
 
               {/* Side-by-Side Dual Composite Strip Preview */}
@@ -672,27 +625,37 @@ export default function LDRBoothPage() {
                 showDownload={isStripComplete}
               />
 
-              {/* Retake buttons for captured slots */}
-              {completedSlots.length > 0 && !isStripComplete && (
-                <div className="w-full mt-3 pt-2 border-t border-pink-100 flex flex-col gap-1">
+              {/* Per-Slot Retake Buttons */}
+              {jointCaptures.some((s) => s.hostPhoto || s.guestPhoto) && (
+                <div className="w-full mt-3 pt-2 border-t border-pink-100 flex flex-col gap-1.5">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">
-                    Request Retake
+                    Retake Any Slot
                   </span>
-                  <div className="flex gap-1 justify-center">
-                    {completedSlots.map((s) => (
-                      <button
-                        key={s.slotNumber}
-                        onClick={() => handleRequestRetake(s.slotNumber)}
-                        className="btn-outline text-[10px] py-1 px-2"
-                        title={`Request retake for Slot #${s.slotNumber}`}
-                      >
-                        Slot #{s.slotNumber}
-                      </button>
-                    ))}
+                  <div className="grid grid-cols-4 gap-1">
+                    {jointCaptures.map((s) => {
+                      const hasPhoto = s.hostPhoto || s.guestPhoto;
+                      return (
+                        <button
+                          key={s.slotNumber}
+                          onClick={() => handleRetakeSlot(s.slotNumber)}
+                          disabled={!hasPhoto || displayCountdown !== null}
+                          className={`text-[10px] py-1 px-1 rounded-lg border flex items-center justify-center gap-0.5 transition-all ${
+                            hasPhoto
+                              ? 'border-pink-300 bg-pink-50 text-pink-600 hover:bg-pink-100'
+                              : 'border-gray-200 text-gray-300 opacity-50 cursor-not-allowed'
+                          }`}
+                          title={hasPhoto ? `Retake Slot #${s.slotNumber}` : `Slot #${s.slotNumber} empty`}
+                        >
+                          <RotateCcw className="w-2.5 h-2.5" />
+                          #{s.slotNumber}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
+              {/* Generate QR Code Button */}
               {isStripComplete && (
                 <div className="w-full mt-3 flex flex-col gap-2">
                   <motion.button

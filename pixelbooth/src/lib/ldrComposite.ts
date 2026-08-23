@@ -1,4 +1,38 @@
 /**
+ * Compresses an image to JPEG (~30KB) so it can easily travel over Supabase Realtime broadcast (limit 256KB).
+ */
+export function compressForRealtime(dataUrl: string, maxDim = 480, quality = 0.72): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let w = img.width;
+      let h = img.height;
+      if (w > maxDim || h > maxDim) {
+        if (w > h) {
+          h = Math.round((h * maxDim) / w);
+          w = maxDim;
+        } else {
+          w = Math.round((w * maxDim) / h);
+          h = maxDim;
+        }
+      }
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      } else {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+/**
  * Composites two photos (Host & Guest) side-by-side into a single photo frame.
  */
 export async function createSideBySideComposite(
