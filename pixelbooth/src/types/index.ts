@@ -146,6 +146,13 @@ export interface LDRBoothSession {
   createdAt: string;
 }
 
+export interface JointCaptureSlot {
+  slotNumber: number;
+  hostPhoto: string | null;
+  guestPhoto: string | null;
+  compositePhoto: string | null;
+}
+
 export interface LDRRealtimeEvent {
   type:
     | 'PARTNER_JOINED'
@@ -156,6 +163,9 @@ export interface LDRRealtimeEvent {
     | 'STRIP_READY'
     | 'READY_CHANGE'
     | 'START_COUNTDOWN'
+    | 'START_SYNC_COUNTDOWN'
+    | 'JOINT_PHOTO_UPLOADED'
+    | 'WEBRTC_SIGNAL'
     | 'RETAKE_REQUEST'
     | 'RETAKE_RESPONSE';
   payload?: Record<string, unknown>;

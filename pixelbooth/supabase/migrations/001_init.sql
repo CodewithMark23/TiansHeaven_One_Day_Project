@@ -30,7 +30,20 @@ CREATE TABLE IF NOT EXISTS photos (
 
 CREATE INDEX IF NOT EXISTS photos_booth_id_idx ON photos (booth_id);
 
--- ─── 3. Memories Table (For QR Code & Public Sharing) ─────────────────────────
+-- ─── 3. Joint Captures Table (For LDR Synchronized Dual Photos) ───────────────
+CREATE TABLE IF NOT EXISTS joint_captures (
+  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  booth_id        UUID        REFERENCES booths(id) ON DELETE CASCADE,
+  slot_number     INT         NOT NULL CHECK (slot_number BETWEEN 1 AND 4),
+  host_photo_url  TEXT,
+  guest_photo_url TEXT,
+  composite_url   TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS joint_captures_booth_id_idx ON joint_captures (booth_id);
+
+-- ─── 4. Memories Table (For QR Code & Public Sharing) ─────────────────────────
 CREATE TABLE IF NOT EXISTS memories (
   id          TEXT        PRIMARY KEY,
   image_url   TEXT        NOT NULL,
@@ -42,10 +55,16 @@ CREATE TABLE IF NOT EXISTS memories (
 
 CREATE INDEX IF NOT EXISTS memories_id_idx ON memories (id);
 
--- ─── 4. Row Level Security ────────────────────────────────────────────────────
+-- ─── 5. Row Level Security ────────────────────────────────────────────────────
 ALTER TABLE booths ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE joint_captures ENABLE ROW LEVEL SECURITY;
 ALTER TABLE memories ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "joint_captures_select_all" ON joint_captures FOR SELECT USING (true);
+CREATE POLICY "joint_captures_insert_all" ON joint_captures FOR INSERT WITH CHECK (true);
+CREATE POLICY "joint_captures_update_all" ON joint_captures FOR UPDATE USING (true);
+CREATE POLICY "joint_captures_delete_all" ON joint_captures FOR DELETE USING (true);
 
 -- Booths policies
 CREATE POLICY "booths_select_all" ON booths FOR SELECT USING (true);

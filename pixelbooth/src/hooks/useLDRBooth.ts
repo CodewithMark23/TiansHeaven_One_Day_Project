@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { nanoid } from 'nanoid';
 import { supabase, hasSupabaseConfig } from '../lib/supabase';
-import type { LDRBoothSession, LDRRealtimeEvent, CapturedPhoto } from '../types';
+import type { LDRBoothSession, LDRRealtimeEvent, CapturedPhoto, JointCaptureSlot } from '../types';
+import type { WebRTCSignal } from './useWebRTC';
+import { createSideBySideComposite } from '../lib/ldrComposite';
 
 export type LDRRole = 'host' | 'guest';
 
@@ -15,22 +17,33 @@ export interface RetakeResponseInfo {
   position: number;
 }
 
+export interface SyncCountdownInfo {
+  targetTimestamp: number;
+  slotNumber: number;
+  duration: number;
+}
+
 export interface UseLDRBoothReturn {
   session: LDRBoothSession | null;
   role: LDRRole | null;
   isPartnerOnline: boolean;
   isConnected: boolean;
   isPartnerReady: boolean;
-  remoteCountdown: number | null;
+  syncCountdown: SyncCountdownInfo | null;
   partnerFlashing: boolean;
+  incomingWebRTCSignal: WebRTCSignal | null;
+  jointCaptures: JointCaptureSlot[];
   retakeRequest: RetakeRequestInfo | null;
   retakeResponse: RetakeResponseInfo | null;
   error: string | null;
   createBooth: (hostName: string) => Promise<string | null>;
   joinBooth: (code: string, guestName: string) => Promise<boolean>;
   broadcastEvent: (event: LDRRealtimeEvent) => void;
+  sendWebRTCSignal: (signal: WebRTCSignal) => void;
   sendReadyState: (isReady: boolean) => void;
-  sendCountdownStart: (duration?: number) => void;
+  sendSyncCountdown: (slotNumber: number, duration?: number) => void;
+  clearSyncCountdown: () => void;
+  sendJointPhoto: (slotNumber: number, dataUrl: string, senderRole: 'host' | 'guest') => Promise<void>;
   sendRetakeRequest: (requesterName: string, position: number) => void;
   respondRetake: (accepted: boolean, position: number) => void;
   clearRetakeStates: () => void;
@@ -46,14 +59,23 @@ function generateCode(): string {
   ).join('');
 }
 
+const INITIAL_SLOTS: JointCaptureSlot[] = [
+  { slotNumber: 1, hostPhoto: null, guestPhoto: null, compositePhoto: null },
+  { slotNumber: 2, hostPhoto: null, guestPhoto: null, compositePhoto: null },
+  { slotNumber: 3, hostPhoto: null, guestPhoto: null, compositePhoto: null },
+  { slotNumber: 4, hostPhoto: null, guestPhoto: null, compositePhoto: null },
+];
+
 export function useLDRBooth(): UseLDRBoothReturn {
   const [session, setSession] = useState<LDRBoothSession | null>(null);
   const [role, setRole] = useState<LDRRole | null>(null);
   const [isPartnerOnline, setIsPartnerOnline] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isPartnerReady, setIsPartnerReady] = useState(false);
-  const [remoteCountdown, setRemoteCountdown] = useState<number | null>(null);
+  const [syncCountdown, setSyncCountdown] = useState<SyncCountdownInfo | null>(null);
   const [partnerFlashing, setPartnerFlashing] = useState(false);
+  const [incomingWebRTCSignal, setIncomingWebRTCSignal] = useState<WebRTCSignal | null>(null);
+  const [jointCaptures, setJointCaptures] = useState<JointCaptureSlot[]>(INITIAL_SLOTS);
   const [retakeRequest, setRetakeRequest] = useState<RetakeRequestInfo | null>(null);
   const [retakeResponse, setRetakeResponse] = useState<RetakeResponseInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +93,16 @@ export function useLDRBooth(): UseLDRBoothReturn {
     [session]
   );
 
+  const sendWebRTCSignal = useCallback(
+    (signal: WebRTCSignal) => {
+      broadcastEvent({
+        type: 'WEBRTC_SIGNAL',
+        payload: { signal },
+      });
+    },
+    [broadcastEvent]
+  );
+
   const sendReadyState = useCallback(
     (isReady: boolean) => {
       broadcastEvent({
@@ -81,14 +113,62 @@ export function useLDRBooth(): UseLDRBoothReturn {
     [broadcastEvent]
   );
 
-  const sendCountdownStart = useCallback(
-    (duration: number = 3) => {
+  const sendSyncCountdown = useCallback(
+    (slotNumber: number, duration: number = 3) => {
+      // 3.2 seconds into the future to allow for network packet transmission
+      const targetTimestamp = Date.now() + duration * 1000 + 200;
+      const info: SyncCountdownInfo = { targetTimestamp, slotNumber, duration };
+      setSyncCountdown(info);
       broadcastEvent({
-        type: 'START_COUNTDOWN',
-        payload: { duration },
+        type: 'START_SYNC_COUNTDOWN',
+        payload: { targetTimestamp, slotNumber, duration },
       });
     },
     [broadcastEvent]
+  );
+
+  const clearSyncCountdown = useCallback(() => {
+    setSyncCountdown(null);
+  }, []);
+
+  const sendJointPhoto = useCallback(
+    async (slotNumber: number, dataUrl: string, senderRole: 'host' | 'guest') => {
+      // 1. Broadcast to partner immediately
+      broadcastEvent({
+        type: 'JOINT_PHOTO_UPLOADED',
+        payload: { slotNumber, dataUrl, senderRole },
+      });
+
+      // 2. Update local joint capture state
+      setJointCaptures((prev) => {
+        const next = [...prev];
+        const idx = slotNumber - 1;
+        if (idx >= 0 && idx < next.length) {
+          const slot = { ...next[idx] };
+          if (senderRole === 'host') slot.hostPhoto = dataUrl;
+          else slot.guestPhoto = dataUrl;
+
+          // If both photos present, generate side-by-side composite
+          if (slot.hostPhoto && slot.guestPhoto) {
+            createSideBySideComposite(
+              slot.hostPhoto,
+              slot.guestPhoto,
+              session?.hostName || 'Host',
+              session?.guestName || 'Partner'
+            ).then((comp) => {
+              setJointCaptures((p) => {
+                const u = [...p];
+                u[idx] = { ...u[idx], compositePhoto: comp };
+                return u;
+              });
+            });
+          }
+          next[idx] = slot;
+        }
+        return next;
+      });
+    },
+    [broadcastEvent, session?.hostName, session?.guestName]
   );
 
   const sendRetakeRequest = useCallback(
@@ -107,6 +187,17 @@ export function useLDRBooth(): UseLDRBoothReturn {
         type: 'RETAKE_RESPONSE',
         payload: { accepted, position },
       });
+      if (accepted) {
+        // Reset that specific slot in jointCaptures
+        setJointCaptures((prev) => {
+          const next = [...prev];
+          const idx = position - 1;
+          if (idx >= 0 && idx < next.length) {
+            next[idx] = { slotNumber: position, hostPhoto: null, guestPhoto: null, compositePhoto: null };
+          }
+          return next;
+        });
+      }
       setRetakeRequest(null);
     },
     [broadcastEvent]
@@ -144,6 +235,7 @@ export function useLDRBooth(): UseLDRBoothReturn {
 
   const clearSessionPhotos = useCallback(async () => {
     setSession((prev) => (prev ? { ...prev, photos: [] } : prev));
+    setJointCaptures(INITIAL_SLOTS);
     if (channelRef.current) {
       channelRef.current.send({
         type: 'broadcast',
@@ -187,12 +279,56 @@ export function useLDRBooth(): UseLDRBoothReturn {
         .on('broadcast', { event: 'PARTNER_JOINED' }, () => {
           setSession((prev) => (prev ? { ...prev, status: 'active' } : prev));
         })
+        .on('broadcast', { event: 'WEBRTC_SIGNAL' }, ({ payload }) => {
+          if (payload?.signal) {
+            setIncomingWebRTCSignal(payload.signal as WebRTCSignal);
+          }
+        })
         .on('broadcast', { event: 'READY_CHANGE' }, ({ payload }) => {
           setIsPartnerReady(!!payload?.isReady);
         })
-        .on('broadcast', { event: 'START_COUNTDOWN' }, ({ payload }) => {
-          const dur = typeof payload?.duration === 'number' ? payload.duration : 3;
-          setRemoteCountdown(dur);
+        .on('broadcast', { event: 'START_SYNC_COUNTDOWN' }, ({ payload }) => {
+          if (payload?.targetTimestamp && payload?.slotNumber) {
+            setSyncCountdown({
+              targetTimestamp: payload.targetTimestamp as number,
+              slotNumber: payload.slotNumber as number,
+              duration: (payload.duration as number) || 3,
+            });
+          }
+        })
+        .on('broadcast', { event: 'JOINT_PHOTO_UPLOADED' }, ({ payload }) => {
+          if (payload?.slotNumber && payload?.dataUrl && payload?.senderRole) {
+            const sNum = payload.slotNumber as number;
+            const sRole = payload.senderRole as 'host' | 'guest';
+            const sData = payload.dataUrl as string;
+
+            setJointCaptures((prev) => {
+              const next = [...prev];
+              const idx = sNum - 1;
+              if (idx >= 0 && idx < next.length) {
+                const slot = { ...next[idx] };
+                if (sRole === 'host') slot.hostPhoto = sData;
+                else slot.guestPhoto = sData;
+
+                if (slot.hostPhoto && slot.guestPhoto) {
+                  createSideBySideComposite(
+                    slot.hostPhoto,
+                    slot.guestPhoto,
+                    sessionData.hostName || 'Host',
+                    sessionData.guestName || 'Partner'
+                  ).then((comp) => {
+                    setJointCaptures((p) => {
+                      const u = [...p];
+                      u[idx] = { ...u[idx], compositePhoto: comp };
+                      return u;
+                    });
+                  });
+                }
+                next[idx] = slot;
+              }
+              return next;
+            });
+          }
         })
         .on('broadcast', { event: 'RETAKE_REQUEST' }, ({ payload }) => {
           if (payload?.requesterName && typeof payload?.position === 'number') {
@@ -208,6 +344,16 @@ export function useLDRBooth(): UseLDRBoothReturn {
               accepted: payload.accepted as boolean,
               position: payload.position as number,
             });
+            if (payload.accepted) {
+              setJointCaptures((prev) => {
+                const next = [...prev];
+                const idx = (payload.position as number) - 1;
+                if (idx >= 0 && idx < next.length) {
+                  next[idx] = { slotNumber: payload.position as number, hostPhoto: null, guestPhoto: null, compositePhoto: null };
+                }
+                return next;
+              });
+            }
           }
         })
         .on('broadcast', { event: 'PHOTO_TAKEN' }, ({ payload }) => {
@@ -221,6 +367,7 @@ export function useLDRBooth(): UseLDRBoothReturn {
         })
         .on('broadcast', { event: 'CLEAR_PHOTOS' }, () => {
           setSession((prev) => (prev ? { ...prev, photos: [] } : prev));
+          setJointCaptures(INITIAL_SLOTS);
         })
         .on('broadcast', { event: 'STRIP_READY' }, () => {
           setSession((prev) => (prev ? { ...prev, status: 'done' } : prev));
@@ -365,6 +512,8 @@ export function useLDRBooth(): UseLDRBoothReturn {
     setIsPartnerOnline(false);
     setIsConnected(false);
     setIsPartnerReady(false);
+    setSyncCountdown(null);
+    setJointCaptures(INITIAL_SLOTS);
     setRetakeRequest(null);
     setRetakeResponse(null);
   }, []);
@@ -383,16 +532,21 @@ export function useLDRBooth(): UseLDRBoothReturn {
     isPartnerOnline,
     isConnected,
     isPartnerReady,
-    remoteCountdown,
+    syncCountdown,
     partnerFlashing,
+    incomingWebRTCSignal,
+    jointCaptures,
     retakeRequest,
     retakeResponse,
     error,
     createBooth,
     joinBooth,
     broadcastEvent,
+    sendWebRTCSignal,
     sendReadyState,
-    sendCountdownStart,
+    sendSyncCountdown,
+    clearSyncCountdown,
+    sendJointPhoto,
     sendRetakeRequest,
     respondRetake,
     clearRetakeStates,

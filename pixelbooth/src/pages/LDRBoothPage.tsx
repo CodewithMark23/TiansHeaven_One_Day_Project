@@ -1,15 +1,14 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, RefreshCw, Heart, Wifi, WifiOff,
-  CheckCircle2, Sparkles, Check, X
+  CheckCircle2, Sparkles, Check, X, Video, VideoOff
 } from 'lucide-react';
-import { nanoid } from 'nanoid';
-import type { FilterType, Sticker } from '../types';
+import type { FilterType, Sticker, CapturedPhoto } from '../types';
 import { useCamera } from '../hooks/useCamera';
-import { usePhotoCapture } from '../hooks/usePhotoCapture';
 import { useLDRBooth } from '../hooks/useLDRBooth';
+import { useWebRTC } from '../hooks/useWebRTC';
 import CameraView from '../components/Camera/CameraView';
 import CaptureButton from '../components/Camera/CaptureButton';
 import CountdownTimer from '../components/UI/CountdownTimer';
@@ -18,18 +17,10 @@ import StickerPicker from '../components/UI/StickerPicker';
 import PhotoStrip from '../components/PhotoStrip/PhotoStrip';
 import QRCodeCard from '../components/QR/QRCodeCard';
 import { saveMemory } from '../lib/memory';
+import { captureFrame } from '../lib/camera';
+import { nanoid } from 'nanoid';
 
 const MAX_PHOTOS = 4;
-
-type LDRLayoutType = 'side-by-side' | 'polaroid' | 'photo-strip' | 'heart-split' | 'collage';
-
-const LAYOUT_OPTIONS: { id: LDRLayoutType; label: string; icon: string }[] = [
-  { id: 'side-by-side', label: 'Side-by-side', icon: '👥' },
-  { id: 'photo-strip',  label: 'Photo Strip',  icon: '🎞️' },
-  { id: 'polaroid',     label: 'Polaroid',     icon: '📷' },
-  { id: 'heart-split',  label: 'Heart Split',  icon: '💕' },
-  { id: 'collage',      label: 'Collage',      icon: '🎨' },
-];
 
 interface LocationState {
   session?: { code: string; hostName: string; guestName?: string };
@@ -44,32 +35,27 @@ export default function LDRBoothPage() {
   const state = location.state as LocationState;
 
   const userName = state?.userName ?? 'You';
-  const role = state?.role ?? 'host';
+  const role = (state?.role as 'host' | 'guest') ?? 'host';
 
   const camera = useCamera();
-  const {
-    photos,
-    isCountingDown,
-    countdown,
-    isFlashing,
-    capturePhoto,
-    clearPhotos,
-    canCapture,
-  } = usePhotoCapture();
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
   const {
     session,
     joinBooth,
-    broadcastEvent,
+    sendWebRTCSignal,
+    incomingWebRTCSignal,
     sendReadyState,
-    sendCountdownStart,
+    sendSyncCountdown,
+    clearSyncCountdown,
+    syncCountdown,
+    sendJointPhoto,
+    jointCaptures,
     sendRetakeRequest,
     respondRetake,
     clearRetakeStates,
-    addPhoto,
     isPartnerOnline,
     isPartnerReady,
-    remoteCountdown,
     partnerFlashing,
     retakeRequest,
     retakeResponse,
@@ -77,11 +63,38 @@ export default function LDRBoothPage() {
     leaveBooth,
   } = useLDRBooth();
 
+  // WebRTC Peer Connection
+  const {
+    remoteStream,
+    connectionState: webrtcState,
+    handleIncomingSignal,
+  } = useWebRTC({
+    localStream: camera.stream,
+    role,
+    isPartnerOnline,
+    onSendSignal: sendWebRTCSignal,
+  });
+
+  // Attach remote stream to partner video element
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [remoteStream]);
+
+  // Forward incoming WebRTC signals
+  useEffect(() => {
+    if (incomingWebRTCSignal) {
+      handleIncomingSignal(incomingWebRTCSignal);
+    }
+  }, [incomingWebRTCSignal, handleIncomingSignal]);
+
   const [filter, setFilter] = useState<FilterType>('original');
-  const [stickers, setStickers] = useState<Sticker[]>([]);
-  const [activeTab, setActiveTab] = useState<'filters' | 'stickers' | 'layout'>('filters');
+  const [, setStickers] = useState<Sticker[]>([]);
+  const [activeTab, setActiveTab] = useState<'filters' | 'stickers'>('filters');
   const [isMyReady, setIsMyReady] = useState(false);
-  const [selectedLayout, setSelectedLayout] = useState<LDRLayoutType>('side-by-side');
+  const [localCountdown, setLocalCountdown] = useState<number | null>(null);
+  const [isFlashing, setIsFlashing] = useState(false);
   const [retakeNotification, setRetakeNotification] = useState<string | null>(null);
 
   // QR Code & Memory URL state
@@ -99,23 +112,81 @@ export default function LDRBoothPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Listen for remote countdown triggers
-  const isExecutingRef = useRef(false);
+  // Compute completed joint photo slots
+  const completedSlots = jointCaptures.filter((s) => s.compositePhoto !== null);
+  const nextSlotNumber = Math.min(MAX_PHOTOS, jointCaptures.findIndex((s) => !s.hostPhoto || !s.guestPhoto) + 1 || 1);
+  const isStripComplete = completedSlots.length >= MAX_PHOTOS;
+
+  const partnerName =
+    role === 'host'
+      ? session?.guestName ?? 'Partner'
+      : session?.hostName ?? 'Partner';
+
+  // ── Synchronized Countdown Logic Driven by Target Timestamp ──────────────
+  const isSnappingRef = useRef(false);
+
   useEffect(() => {
-    if (remoteCountdown !== null && !isExecutingRef.current) {
-      handleTriggerCapture();
+    if (!syncCountdown) return;
+
+    const { targetTimestamp, slotNumber } = syncCountdown;
+    isSnappingRef.current = false;
+
+    const interval = setInterval(async () => {
+      const remainingMs = targetTimestamp - Date.now();
+      const remainingSec = Math.ceil(remainingMs / 1000);
+
+      if (remainingSec > 0) {
+        setLocalCountdown(remainingSec);
+      } else if (!isSnappingRef.current) {
+        // EXACT MOMENT OF CAPTURE
+        isSnappingRef.current = true;
+        setLocalCountdown(null);
+        clearSyncCountdown();
+        clearInterval(interval);
+
+        // Flash
+        setIsFlashing(true);
+        setTimeout(() => setIsFlashing(false), 500);
+
+        // Local high-res capture from device's own webcam
+        if (camera.videoRef.current) {
+          const myDataUrl = captureFrame(camera.videoRef.current, filter, true);
+          await sendJointPhoto(slotNumber, myDataUrl, role);
+        }
+
+        setIsMyReady(false);
+        sendReadyState(false);
+      }
+    }, 50);
+
+    return () => clearInterval(interval);
+  }, [syncCountdown, camera.videoRef, filter, role, sendJointPhoto, clearSyncCountdown, sendReadyState]);
+
+  // Handle Ready Toggle & Trigger Countdown when both ready
+  const handleToggleReady = () => {
+    const next = !isMyReady;
+    setIsMyReady(next);
+    sendReadyState(next);
+
+    // If partner is already ready and we click ready -> initiate synchronized countdown for next slot!
+    if (next && isPartnerReady && !isStripComplete) {
+      sendSyncCountdown(nextSlotNumber, 3);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remoteCountdown]);
+  };
+
+  // Manual Trigger
+  const handleManualTrigger = () => {
+    if (isStripComplete) return;
+    sendSyncCountdown(nextSlotNumber, 3);
+  };
 
   // Listen for retake responses
   useEffect(() => {
     if (retakeResponse) {
       if (retakeResponse.accepted) {
-        setRetakeNotification(`Partner accepted retake for Photo #${retakeResponse.position}! 🎉`);
-        clearSessionPhotos();
+        setRetakeNotification(`Partner accepted retake for Slot #${retakeResponse.position}! 🎉`);
       } else {
-        setRetakeNotification(`Partner chose to keep Photo #${retakeResponse.position}. ♡`);
+        setRetakeNotification(`Partner chose to keep Slot #${retakeResponse.position}. ♡`);
       }
       const t = setTimeout(() => {
         setRetakeNotification(null);
@@ -123,34 +194,7 @@ export default function LDRBoothPage() {
       }, 4000);
       return () => clearTimeout(t);
     }
-  }, [retakeResponse, clearSessionPhotos, clearRetakeStates]);
-
-  const handleToggleReady = () => {
-    const next = !isMyReady;
-    setIsMyReady(next);
-    sendReadyState(next);
-
-    if (next && isPartnerReady) {
-      sendCountdownStart(3);
-      handleTriggerCapture();
-    }
-  };
-
-  const handleTriggerCapture = useCallback(async () => {
-    if (!camera.videoRef.current || isExecutingRef.current) return;
-    isExecutingRef.current = true;
-
-    const photo = await capturePhoto(camera.videoRef.current, filter, stickers, userName);
-    if (photo) {
-      addPhoto(photo);
-      broadcastEvent({ type: 'PHOTO_TAKEN', payload: { photo } });
-      broadcastEvent({ type: 'FLASH' });
-    }
-
-    setIsMyReady(false);
-    sendReadyState(false);
-    isExecutingRef.current = false;
-  }, [camera.videoRef, capturePhoto, filter, stickers, userName, addPhoto, broadcastEvent, sendReadyState]);
+  }, [retakeResponse, clearRetakeStates]);
 
   const handleAddSticker = (emoji: string) => {
     const newSticker: Sticker = {
@@ -165,33 +209,26 @@ export default function LDRBoothPage() {
     setStickers((prev) => [...prev, newSticker]);
   };
 
-  const activePhotos = session?.photos && session.photos.length > 0 ? session.photos : photos;
-  const isStripComplete = activePhotos.length >= MAX_PHOTOS;
-  const partnerName =
-    role === 'host'
-      ? session?.guestName ?? 'Partner'
-      : session?.hostName ?? 'Partner';
-
   const handleClearAll = () => {
-    clearPhotos();
     clearSessionPhotos();
     setMemoryUrl('');
     setShowQRModal(false);
   };
 
-  const handleRequestRetake = (photoNumber: number) => {
-    sendRetakeRequest(userName, photoNumber);
-    setRetakeNotification(`Retake requested for Photo #${photoNumber}. Waiting for ${partnerName}…`);
+  const handleRequestRetake = (slotNum: number) => {
+    sendRetakeRequest(userName, slotNum);
+    setRetakeNotification(`Retake requested for Slot #${slotNum}. Waiting for ${partnerName}…`);
   };
 
+  // Generate QR Memory when strip finishes
   const handleGenerateQRMemory = async () => {
-    if (activePhotos.length === 0 || isGeneratingMemory) return;
+    if (completedSlots.length === 0 || isGeneratingMemory) return;
     setIsGeneratingMemory(true);
     try {
-      const stripDataUrl = activePhotos[activePhotos.length - 1].dataUrl;
-      const { url } = await saveMemory(stripDataUrl, {
+      const lastComposite = completedSlots[completedSlots.length - 1].compositePhoto!;
+      const { url } = await saveMemory(lastComposite, {
         caption: `LDR Memory with ${partnerName} ♡`,
-        frame: selectedLayout,
+        frame: 'side-by-side',
         frameColor: '#FFB6C1',
       });
       setMemoryUrl(url);
@@ -202,6 +239,18 @@ export default function LDRBoothPage() {
       setIsGeneratingMemory(false);
     }
   };
+
+  // Convert jointCaptures into CapturedPhoto array for PhotoStrip component
+  const stripPhotos: CapturedPhoto[] = jointCaptures
+    .filter((s) => s.compositePhoto !== null)
+    .map((s) => ({
+      id: `slot_${s.slotNumber}`,
+      dataUrl: s.compositePhoto!,
+      filter: 'original',
+      takerName: `${userName} & ${partnerName}`,
+      position: s.slotNumber,
+      timestamp: Date.now(),
+    }));
 
   return (
     <div className="min-h-dvh bg-ldr-gradient flex flex-col">
@@ -237,6 +286,7 @@ export default function LDRBoothPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Partner status */}
           <AnimatePresence>
             {isPartnerOnline ? (
               <motion.div
@@ -266,7 +316,7 @@ export default function LDRBoothPage() {
             )}
           </AnimatePresence>
 
-          {activePhotos.length > 0 && (
+          {completedSlots.length > 0 && (
             <button className="btn-ghost text-xs" onClick={handleClearAll} title="Clear photos">
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
@@ -352,37 +402,54 @@ export default function LDRBoothPage() {
                     isFlashing={isFlashing}
                     className="w-full h-full object-cover"
                   />
-                  {isCountingDown && (
+                  {localCountdown !== null && (
                     <div className="absolute inset-0 z-50 rounded-2xl">
-                      <CountdownTimer count={countdown} isVisible={isCountingDown} />
+                      <CountdownTimer count={localCountdown} isVisible={localCountdown !== null} />
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* PARTNER'S CAMERA */}
+              {/* PARTNER'S CAMERA (WebRTC Live Stream) */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-bold text-purple-500 uppercase tracking-wider">
+                  <span className="text-xs font-bold text-purple-500 uppercase tracking-wider flex items-center gap-1">
                     💕 {partnerName}
+                    {webrtcState === 'connected' ? (
+                      <Video className="w-3 h-3 text-green-500" />
+                    ) : (
+                      <VideoOff className="w-3 h-3 text-gray-400" />
+                    )}
                   </span>
                   {isPartnerReady ? (
                     <span className="badge badge-mint text-[10px] py-0.5">Ready ♡</span>
                   ) : (
-                    <span className="badge badge-pink text-[10px] py-0.5">Not Ready</span>
+                    <span className="badge badge-pink text-[10px] py-0.5">
+                      {webrtcState === 'connecting' ? 'Connecting…' : 'Not Ready'}
+                    </span>
                   )}
                 </div>
 
                 <div
-                  className="relative camera-frame flex flex-col items-center justify-center text-center p-4 bg-white/70 backdrop-blur-md"
+                  className="relative camera-frame flex flex-col items-center justify-center text-center p-0 bg-black/90 overflow-hidden"
                   style={{ aspectRatio: '3/4' }}
                 >
                   {partnerFlashing && (
                     <div className="absolute inset-0 bg-white z-30 animate-pulse" />
                   )}
 
-                  {isPartnerOnline ? (
-                    <div className="flex flex-col items-center gap-3">
+                  {/* WebRTC Live Video Stream */}
+                  {remoteStream && webrtcState === 'connected' ? (
+                    <video
+                      ref={remoteVideoRef}
+                      autoPlay
+                      playsInline
+                      className="w-full h-full object-cover"
+                      style={{ transform: 'scaleX(-1)' }}
+                    />
+                  ) : isPartnerOnline ? (
+                    /* Fallback Avatar when WebRTC is connecting */
+                    <div className="flex flex-col items-center gap-3 p-4 text-white">
                       <motion.div
                         animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
                         transition={{ duration: 2.5, repeat: Infinity }}
@@ -391,23 +458,30 @@ export default function LDRBoothPage() {
                         🌸
                       </motion.div>
                       <div>
-                        <p className="font-display text-base text-purple-600">
-                          {isPartnerReady ? '♡ Partner is ready!' : 'Waiting for partner…'}
+                        <p className="font-display text-base text-pink-300">
+                          {isPartnerReady ? '♡ Partner is ready!' : 'Connecting video feed…'}
                         </p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">
-                          {isPartnerReady ? 'Press Ready to countdown!' : 'Will snap together ✨'}
+                        <p className="text-[11px] text-gray-300 mt-0.5">
+                          {isPartnerReady ? 'Press Ready to countdown!' : 'Real-time sync active ✨'}
                         </p>
                       </div>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center gap-2 text-gray-400 p-3">
+                    /* Offline State */
+                    <div className="flex flex-col items-center gap-2 text-gray-400 p-4">
                       <span className="text-3xl">💌</span>
-                      <p className="text-xs font-medium text-purple-400">
-                        Waiting for {partnerName} to join with code:
+                      <p className="text-xs font-medium text-purple-300">
+                        Waiting for {partnerName} to join:
                       </p>
-                      <span className="font-display text-lg text-pink-500 tracking-wider">
+                      <span className="font-display text-lg text-pink-400 tracking-wider">
                         {code}
                       </span>
+                    </div>
+                  )}
+
+                  {localCountdown !== null && (
+                    <div className="absolute inset-0 z-50 rounded-2xl">
+                      <CountdownTimer count={localCountdown} isVisible={localCountdown !== null} />
                     </div>
                   )}
                 </div>
@@ -421,7 +495,7 @@ export default function LDRBoothPage() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleToggleReady}
-                  disabled={!camera.isReady || isStripComplete}
+                  disabled={!camera.isReady || isStripComplete || localCountdown !== null}
                   className={`btn-snappy py-2 px-5 text-sm ${
                     isMyReady ? 'btn-snappy-mint' : ''
                   }`}
@@ -431,21 +505,21 @@ export default function LDRBoothPage() {
                 </motion.button>
 
                 <span className="text-xs text-gray-500">
-                  {isPartnerReady ? '🌸 Partner is ready to shoot!' : 'Waiting for both to be ready.'}
+                  {isPartnerReady ? '🌸 Partner is ready! Click ready to snap.' : 'Click Ready when you are posed.'}
                 </span>
               </div>
 
               <CaptureButton
-                onClick={handleTriggerCapture}
-                disabled={!canCapture || !camera.isReady || isStripComplete}
-                photosLeft={Math.max(0, MAX_PHOTOS - activePhotos.length)}
+                onClick={handleManualTrigger}
+                disabled={!camera.isReady || isStripComplete || localCountdown !== null}
+                photosLeft={Math.max(0, MAX_PHOTOS - completedSlots.length)}
               />
             </div>
 
             {/* Customization Tabs */}
             <div className="card p-4">
               <div className="flex rounded-xl overflow-hidden mb-3 bg-pink-100/60 p-0.5">
-                {(['filters', 'stickers', 'layout'] as const).map((tab) => (
+                {(['filters', 'stickers'] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
@@ -455,7 +529,7 @@ export default function LDRBoothPage() {
                         : 'text-gray-500 hover:text-gray-800'
                     }`}
                   >
-                    {tab === 'filters' ? '🎨 Filters' : tab === 'stickers' ? '✨ Stickers' : '📐 Layout'}
+                    {tab === 'filters' ? '🎨 Filters' : '✨ Stickers'}
                   </button>
                 ))}
               </div>
@@ -471,55 +545,41 @@ export default function LDRBoothPage() {
                     <StickerPicker onStickerAdd={handleAddSticker} />
                   </motion.div>
                 )}
-                {activeTab === 'layout' && (
-                  <motion.div key="layout" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-wrap gap-2">
-                    {LAYOUT_OPTIONS.map((lo) => (
-                      <button
-                        key={lo.id}
-                        onClick={() => setSelectedLayout(lo.id)}
-                        className={`pill-option text-xs py-1.5 px-3 flex items-center gap-1.5 ${
-                          selectedLayout === lo.id ? 'active' : ''
-                        }`}
-                      >
-                        <span>{lo.icon}</span>
-                        <span>{lo.label}</span>
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
               </AnimatePresence>
             </div>
           </div>
 
           {/* Right: Shared Photostrip & QR Section */}
-          <div className="lg:w-60 w-full flex flex-col items-center gap-4">
+          <div className="lg:w-64 w-full flex flex-col items-center gap-4">
             <div className="card-white p-4 w-full flex flex-col items-center">
               <div className="flex items-center gap-2 mb-3">
                 <Heart className="w-4 h-4 text-pink-400 fill-pink-200" />
-                <span className="text-sm font-semibold text-gray-700">Our Shared Strip</span>
-                <span className="badge badge-lavender text-xs">{activePhotos.length}/4</span>
+                <span className="text-sm font-semibold text-gray-700">Side-by-Side Strip</span>
+                <span className="badge badge-lavender text-xs">{completedSlots.length}/4</span>
               </div>
 
+              {/* Side-by-Side Dual Composite Strip Preview */}
               <PhotoStrip
-                photos={activePhotos}
+                photos={stripPhotos}
                 userName={`${userName} & ${partnerName}`}
                 showDownload={isStripComplete}
               />
 
-              {activePhotos.length > 0 && !isStripComplete && (
+              {/* Retake buttons for captured slots */}
+              {completedSlots.length > 0 && !isStripComplete && (
                 <div className="w-full mt-3 pt-2 border-t border-pink-100 flex flex-col gap-1">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">
                     Request Retake
                   </span>
                   <div className="flex gap-1 justify-center">
-                    {activePhotos.map((_, i) => (
+                    {completedSlots.map((s) => (
                       <button
-                        key={i}
-                        onClick={() => handleRequestRetake(i + 1)}
+                        key={s.slotNumber}
+                        onClick={() => handleRequestRetake(s.slotNumber)}
                         className="btn-outline text-[10px] py-1 px-2"
-                        title={`Request retake for Photo #${i + 1}`}
+                        title={`Request retake for Slot #${s.slotNumber}`}
                       >
-                        #{i + 1}
+                        Slot #{s.slotNumber}
                       </button>
                     ))}
                   </div>
