@@ -7,7 +7,8 @@ interface CountdownSelectorProps {
 }
 
 const OPTIONS: { value: CountdownDuration; label: string; emoji: string }[] = [
-  { value: 3,  label: '3s',  emoji: '⚡' },
+  { value: 0,  label: 'Off', emoji: '⚡' },
+  { value: 3,  label: '3s',  emoji: '⏱️' },
   { value: 5,  label: '5s',  emoji: '✨' },
   { value: 10, label: '10s', emoji: '🌸' },
 ];

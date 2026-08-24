@@ -72,12 +72,14 @@ export default function CameraSession({
     captureRef.current = true;
     setIsCapturing(true);
 
-    // Countdown
-    for (let i = countdown; i >= 1; i--) {
-      setCountdownNum(i);
-      await delay(1000);
+    // Countdown (if > 0)
+    if (countdown > 0) {
+      for (let i = countdown; i >= 1; i--) {
+        setCountdownNum(i);
+        await delay(1000);
+      }
+      setCountdownNum(null);
     }
-    setCountdownNum(null);
 
     // Flash
     setIsFlashing(true);

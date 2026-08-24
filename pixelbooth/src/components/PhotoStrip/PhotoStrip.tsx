@@ -1,7 +1,7 @@
 import { useState, forwardRef, useImperativeHandle } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { CapturedPhoto, StripOptions } from '../../types';
-import { STRIP_BORDER_COLORS } from '../../types';
+import type { CapturedPhoto, StripOptions, PhotoLayoutId } from '../../types';
+import { STRIP_BORDER_COLORS, PHOTO_LAYOUT_OPTIONS } from '../../types';
 import { buildStrip, downloadStrip } from '../../lib/strip';
 import { Download, Palette } from 'lucide-react';
 
@@ -9,6 +9,8 @@ interface PhotoStripProps {
   photos: CapturedPhoto[];
   userName?: string;
   showDownload?: boolean;
+  layoutId?: PhotoLayoutId;
+  photoCount?: number;
 }
 
 export interface PhotoStripRef {
@@ -16,10 +18,19 @@ export interface PhotoStripRef {
 }
 
 const PhotoStrip = forwardRef<PhotoStripRef, PhotoStripProps>(
-  ({ photos, userName, showDownload = true }, ref) => {
+  ({ photos, userName, showDownload = true, layoutId = '4-vertical', photoCount = 4 }, ref) => {
     const [borderColor, setBorderColor] = useState(STRIP_BORDER_COLORS[0]);
     const [isExporting, setIsExporting] = useState(false);
     const [showColorPicker, setShowColorPicker] = useState(false);
+
+    const layoutOpt = PHOTO_LAYOUT_OPTIONS.find((l) => l.id === layoutId) || PHOTO_LAYOUT_OPTIONS[0];
+
+    const containerWidth =
+      layoutOpt.columns === 3 ? 320 :
+      layoutOpt.columns === 2 ? 260 :
+      layoutOpt.id === '1-pose' ? 220 : 160;
+
+    const totalSlots = photoCount || layoutOpt.photoCount;
 
     const handleDownload = async () => {
       if (photos.length === 0) return;
@@ -30,6 +41,7 @@ const PhotoStrip = forwardRef<PhotoStripRef, PhotoStripProps>(
           title: userName ? `✨ ${userName}'s PixelBooth ✨` : '✨ PixelBooth ✨',
           date: true,
           layout: 'vertical',
+          layoutId,
         };
         const canvas = await buildStrip(photos, options);
         downloadStrip(canvas, `pixelbooth-${Date.now()}.png`);
@@ -45,52 +57,57 @@ const PhotoStrip = forwardRef<PhotoStripRef, PhotoStripProps>(
         {/* Strip preview */}
         <motion.div
           layout
-          className="photo-strip"
+          className="photo-strip transition-all duration-300"
           style={{
             background: borderColor,
             padding: '12px',
             borderRadius: '12px',
             boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-            width: '160px',
+            width: `${containerWidth}px`,
           }}
         >
-          {photos.length === 0 ? (
-            /* Empty slots */
-            Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="w-full rounded"
-                style={{
-                  aspectRatio: '3/4',
-                  background: 'rgba(255,255,255,0.4)',
-                  marginBottom: i < 3 ? '4px' : 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '1.2rem',
-                }}
-              >
-                <span className="text-white/60 text-lg">{i + 1}</span>
-              </div>
-            ))
-          ) : (
-            photos.map((photo, i) => (
-              <motion.div
-                key={photo.id}
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: 'spring', delay: i * 0.1 }}
-                style={{ marginBottom: i < photos.length - 1 ? '4px' : 0 }}
-              >
-                <img
-                  src={photo.dataUrl}
-                  alt={`Photo ${i + 1}`}
-                  className="strip-photo"
-                  style={{ borderRadius: '4px' }}
-                />
-              </motion.div>
-            ))
-          )}
+          <div
+            className="grid gap-1.5"
+            style={{
+              gridTemplateColumns: `repeat(${layoutOpt.columns}, minmax(0, 1fr))`,
+            }}
+          >
+            {photos.length === 0 ? (
+              /* Empty slots */
+              Array.from({ length: totalSlots }).map((_, i) => (
+                <div
+                  key={i}
+                  className="w-full rounded"
+                  style={{
+                    aspectRatio: '4/3',
+                    background: 'rgba(255,255,255,0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1rem',
+                  }}
+                >
+                  <span className="text-white/60 font-bold">{i + 1}</span>
+                </div>
+              ))
+            ) : (
+              photos.map((photo, i) => (
+                <motion.div
+                  key={photo.id || i}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ type: 'spring', delay: i * 0.1 }}
+                >
+                  <img
+                    src={photo.dataUrl}
+                    alt={`Photo ${i + 1}`}
+                    className="strip-photo"
+                    style={{ borderRadius: '4px', aspectRatio: '4/3', objectFit: 'cover', width: '100%' }}
+                  />
+                </motion.div>
+              ))
+            )}
+          </div>
 
           {/* Footer */}
           <div

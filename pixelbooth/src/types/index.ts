@@ -12,8 +12,85 @@ export type FilterType =
   | 'dreamy'
   | 'y2k';
 
-export type CountdownDuration = 3 | 5 | 10;
-export type PhotoCount = 1 | 3 | 4 | 6;
+export type CountdownDuration = 0 | 3 | 5 | 10;
+export type PhotoCount = 1 | 2 | 3 | 4 | 6;
+
+// ─── Photo Layouts ─────────────────────────────────────────────────────────────
+
+export type PhotoLayoutId =
+  | '4-vertical'   // 4 Pose — Traditional Vertical
+  | '4-landscape'  // 4 Pose — Landscape (2x2)
+  | '3-vertical'   // 3 Pose — Vertical (1x3)
+  | '2-vertical'   // 2 Pose — Vertical (1x2)
+  | '6-grid'       // 6 Pose — 3 Left + 3 Right (2x3)
+  | '1-pose';      // 1 Pose — Traditional (1x1)
+
+export interface PhotoLayoutOption {
+  id: PhotoLayoutId;
+  label: string;
+  subtitle: string;
+  photoCount: PhotoCount;
+  columns: number;
+  rows: number;
+  emoji: string;
+}
+
+export const PHOTO_LAYOUT_OPTIONS: PhotoLayoutOption[] = [
+  {
+    id: '4-vertical',
+    label: '4 Pose — Vertical',
+    subtitle: 'Classic vertical photobooth strip',
+    photoCount: 4,
+    columns: 1,
+    rows: 4,
+    emoji: '🎞️',
+  },
+  {
+    id: '4-landscape',
+    label: '4 Pose — Landscape',
+    subtitle: '2x2 grid landscape photobooth',
+    photoCount: 4,
+    columns: 2,
+    rows: 2,
+    emoji: '🖼️',
+  },
+  {
+    id: '3-vertical',
+    label: '3 Pose — Vertical',
+    subtitle: '3 photos vertical strip',
+    photoCount: 3,
+    columns: 1,
+    rows: 3,
+    emoji: '🌅',
+  },
+  {
+    id: '2-vertical',
+    label: '2 Pose — Vertical',
+    subtitle: '2 photos vertical strip',
+    photoCount: 2,
+    columns: 1,
+    rows: 2,
+    emoji: '👥',
+  },
+  {
+    id: '6-grid',
+    label: '6 Pose — 3 Left + 3 Right',
+    subtitle: '3 photos left + 3 photos right',
+    photoCount: 6,
+    columns: 2,
+    rows: 3,
+    emoji: '📸',
+  },
+  {
+    id: '1-pose',
+    label: '1 Pose — Traditional',
+    subtitle: 'Single classic portrait photo card',
+    photoCount: 1,
+    columns: 1,
+    rows: 1,
+    emoji: '👤',
+  },
+];
 
 // ─── Filter options ────────────────────────────────────────────────────────────
 
@@ -104,6 +181,7 @@ export interface BoothConfig {
   frameColor: string;   // hex
   filter: FilterType;
   photoCount: PhotoCount;
+  layoutId: PhotoLayoutId;
 }
 
 export interface CapturedPhoto {
@@ -173,6 +251,7 @@ export interface StripOptions {
   title?: string;
   date?: boolean;
   layout: 'vertical' | 'grid';
+  layoutId?: PhotoLayoutId;
   caption?: string;
 }
 
@@ -187,4 +266,5 @@ export const DEFAULT_BOOTH_CONFIG: BoothConfig = {
   frameColor: '#FFFFFF',
   filter: 'original',
   photoCount: 4,
+  layoutId: '4-vertical',
 };

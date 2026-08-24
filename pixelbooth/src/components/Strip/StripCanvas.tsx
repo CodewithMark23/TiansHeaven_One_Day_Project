@@ -1,8 +1,8 @@
 import { useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Palette } from 'lucide-react';
-import type { CapturedPhoto, FrameTemplate, StickerItem } from '../../types';
-import { STRIP_BORDER_COLORS } from '../../types';
+import type { CapturedPhoto, FrameTemplate, StickerItem, PhotoLayoutId } from '../../types';
+import { STRIP_BORDER_COLORS, PHOTO_LAYOUT_OPTIONS } from '../../types';
 import StickerPalette from '../Stickers/StickerPalette';
 
 interface StripCanvasProps {
@@ -11,6 +11,7 @@ interface StripCanvasProps {
   frameColor: string;
   caption: string;
   stickers: StickerItem[];
+  layoutId?: PhotoLayoutId;
   onCaptionChange: (c: string) => void;
   onStickersChange: (s: StickerItem[]) => void;
   userName?: string;
@@ -21,10 +22,18 @@ export interface StripCanvasRef {
 }
 
 const StripCanvas = forwardRef<StripCanvasRef, StripCanvasProps>(
-  ({ photos, frameTemplate, frameColor, caption, stickers, onCaptionChange, onStickersChange, userName }, ref) => {
+  ({ photos, frameTemplate, frameColor, caption, stickers, layoutId = '4-vertical', onCaptionChange, onStickersChange, userName }, ref) => {
     const stripRef = useRef<HTMLDivElement>(null);
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [localColor, setLocalColor] = useState(frameColor);
+
+    const layoutOpt = PHOTO_LAYOUT_OPTIONS.find((l) => l.id === layoutId) || PHOTO_LAYOUT_OPTIONS[0];
+
+    // Compute container width based on columns
+    const containerWidth =
+      layoutOpt.columns === 3 ? 380 :
+      layoutOpt.columns === 2 ? 320 :
+      layoutOpt.id === '1-pose' ? 280 : 200;
 
     // Export strip to PNG via html2canvas
     const getDataUrl = async (): Promise<string> => {
@@ -44,17 +53,17 @@ const StripCanvas = forwardRef<StripCanvasRef, StripCanvasProps>(
     const activeColor = localColor || frameColor;
 
     return (
-      <div className="flex flex-col lg:flex-row gap-6 items-start w-full">
+      <div className="flex flex-col lg:flex-row gap-6 items-start w-full justify-center">
         {/* Strip preview */}
-        <div className="flex flex-col items-center gap-3 flex-shrink-0">
+        <div className="flex flex-col items-center gap-3 flex-shrink-0 mx-auto">
           <div
             ref={stripRef}
-            className="strip-container relative"
+            className="strip-container relative transition-all duration-300"
             style={{
-              width: 180,
+              width: containerWidth,
               background: activeColor,
-              borderRadius: 10,
-              padding: '12px 12px 8px',
+              borderRadius: 12,
+              padding: '14px 14px 10px',
               border: `4px ${frameTemplate.borderStyle} ${
                 activeColor === '#FFFFFF' ? '#e0c0cc' :
                 activeColor === '#2D2D2D' ? '#555' :
@@ -80,13 +89,18 @@ const StripCanvas = forwardRef<StripCanvasRef, StripCanvasProps>(
               </>
             )}
 
-            {/* Photos */}
-            <div className="flex flex-col gap-[3px] relative">
+            {/* Photos Grid */}
+            <div
+              className="grid gap-1.5 relative"
+              style={{
+                gridTemplateColumns: `repeat(${layoutOpt.columns}, minmax(0, 1fr))`,
+              }}
+            >
               {photos.map((photo, i) => (
                 <div
-                  key={photo.id}
-                  className="relative overflow-hidden"
-                  style={{ borderRadius: 4, aspectRatio: '3/4', width: '100%' }}
+                  key={photo.id || i}
+                  className="relative overflow-hidden shadow-xs"
+                  style={{ borderRadius: 4, aspectRatio: '4/3', width: '100%' }}
                 >
                   <img
                     src={photo.dataUrl}

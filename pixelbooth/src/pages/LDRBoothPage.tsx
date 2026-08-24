@@ -5,7 +5,7 @@ import {
   ArrowLeft, RefreshCw, Heart, Wifi, WifiOff,
   CheckCircle2, Sparkles, Video, VideoOff, RotateCcw
 } from 'lucide-react';
-import type { FilterType, Sticker, CapturedPhoto } from '../types';
+import type { FilterType, Sticker, CapturedPhoto, CountdownDuration, PhotoLayoutId, PhotoLayoutOption } from '../types';
 import { useCamera } from '../hooks/useCamera';
 import { useLDRBooth } from '../hooks/useLDRBooth';
 import { useWebRTC } from '../hooks/useWebRTC';
@@ -13,6 +13,8 @@ import CameraView from '../components/Camera/CameraView';
 import CaptureButton from '../components/Camera/CaptureButton';
 import CountdownTimer from '../components/UI/CountdownTimer';
 import FilterSelector from '../components/Setup/FilterSelector';
+import CountdownSelector from '../components/Setup/CountdownSelector';
+import PhotoLayoutSelector from '../components/Setup/PhotoLayoutSelector';
 import StickerPicker from '../components/UI/StickerPicker';
 import PhotoStrip from '../components/PhotoStrip/PhotoStrip';
 import QRCodeCard from '../components/QR/QRCodeCard';
@@ -20,8 +22,6 @@ import { saveMemory } from '../lib/memory';
 import { captureFrame } from '../lib/camera';
 import { createSideBySideComposite } from '../lib/ldrComposite';
 import { nanoid } from 'nanoid';
-
-const MAX_PHOTOS = 4;
 
 interface LocationState {
   session?: { code: string; hostName: string; guestName?: string };
@@ -109,12 +109,20 @@ export default function LDRBoothPage() {
   }, [incomingWebRTCSignal, handleIncomingSignal]);
 
   const [filter, setFilter] = useState<FilterType>('original');
+  const [countdown, setCountdown] = useState<CountdownDuration>(3);
+  const [layoutId, setLayoutId] = useState<PhotoLayoutId>('4-vertical');
+  const [photoCount, setPhotoCount] = useState<number>(4);
   const [, setStickers] = useState<Sticker[]>([]);
-  const [activeTab, setActiveTab] = useState<'filters' | 'stickers'>('filters');
+  const [activeTab, setActiveTab] = useState<'filters' | 'layout' | 'countdown' | 'stickers'>('filters');
   const [isMyReady, setIsMyReady] = useState(false);
   const [displayCountdown, setDisplayCountdown] = useState<number | null>(null);
   const [isFlashing, setIsFlashing] = useState(false);
   const [compositePreviews, setCompositePreviews] = useState<(string | null)[]>([null, null, null, null]);
+
+  const handleLayoutChange = (layout: PhotoLayoutOption) => {
+    setLayoutId(layout.id);
+    setPhotoCount(layout.photoCount);
+  };
 
   // QR Code & Memory URL state
   const [memoryUrl, setMemoryUrl] = useState<string>('');
@@ -156,11 +164,12 @@ export default function LDRBoothPage() {
     generateAllPreviews();
   }, [jointCaptures, session?.hostName, session?.guestName]);
 
+  const maxPhotos = photoCount || 4;
   // Count fully paired slots (both host & guest present)
   const completedCount = jointCaptures.filter((s) => s.hostPhoto && s.guestPhoto).length;
   // First slot that is missing either host or guest photo
-  const nextSlotNumber = Math.min(MAX_PHOTOS, jointCaptures.findIndex((s) => !s.hostPhoto || !s.guestPhoto) + 1 || 1);
-  const isStripComplete = completedCount >= MAX_PHOTOS;
+  const nextSlotNumber = Math.min(maxPhotos, jointCaptures.findIndex((s) => !s.hostPhoto || !s.guestPhoto) + 1 || 1);
+  const isStripComplete = completedCount >= maxPhotos;
 
   // ── Synchronized Countdown Logic (Guaranteed Both Ready) ─────────────────
   const activeTriggerIdRef = useRef<string | null>(null);
@@ -171,6 +180,24 @@ export default function LDRBoothPage() {
 
     activeTriggerIdRef.current = syncTrigger.triggerId;
     const { duration, slotNumber } = syncTrigger;
+
+    // Instant capture if duration is 0
+    if (duration === 0) {
+      console.log(`[LDRBooth] Instant capture (0s) for Slot #${slotNumber}...`);
+      clearSyncTrigger();
+      setIsFlashing(true);
+      setTimeout(() => setIsFlashing(false), 500);
+
+      (async () => {
+        if (camera.videoRef.current) {
+          const myDataUrl = captureFrame(camera.videoRef.current, filter, true);
+          await recordAndSyncJointPhoto(slotNumber, myDataUrl, role);
+        }
+        setIsMyReady(false);
+        sendReadyState(false);
+      })();
+      return;
+    }
 
     console.log(`[LDRBooth] Starting synchronized countdown (${duration}s) for Slot #${slotNumber}...`);
     let current = duration;
@@ -214,15 +241,15 @@ export default function LDRBoothPage() {
 
     // If partner is ALREADY ready and we just clicked ready -> Trigger synchronized countdown!
     if (next && isPartnerReady && !isStripComplete && displayCountdown === null) {
-      console.log(`[LDRBooth] Both partners ready! Triggering sync countdown for Slot #${nextSlotNumber}...`);
-      triggerSyncCountdown(nextSlotNumber, 3);
+      console.log(`[LDRBooth] Both partners ready! Triggering sync countdown (${countdown}s) for Slot #${nextSlotNumber}...`);
+      triggerSyncCountdown(nextSlotNumber, countdown);
     }
   };
 
   const handleManualTrigger = () => {
     // If both ready, trigger countdown; otherwise toggle ready
     if (isPartnerReady && isMyReady && !isStripComplete && displayCountdown === null) {
-      triggerSyncCountdown(nextSlotNumber, 3);
+      triggerSyncCountdown(nextSlotNumber, countdown);
     } else {
       handleToggleReady();
     }
@@ -330,14 +357,20 @@ export default function LDRBoothPage() {
 
   return (
     <div className="min-h-dvh bg-ldr-gradient flex flex-col">
-      {/* Header */}
+      {/* Header — blue stationery style */}
       <motion.header
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between p-4 pb-2 max-w-5xl mx-auto w-full"
+        className="flex items-center justify-between px-6 py-3 sticky top-0 z-30 w-full"
+        style={{
+          background: 'rgba(244, 251, 255, 0.92)',
+          backdropFilter: 'blur(12px)',
+          borderBottom: '1.5px solid rgba(180, 225, 235, 0.65)',
+          boxShadow: '0 3px 18px rgba(200, 238, 242, 0.35)',
+        }}
       >
         <button
-          className="btn-ghost"
+          className="btn-scrapbook-blue px-4 py-1.5 text-xs flex items-center gap-1.5 font-cute cursor-pointer"
           onClick={() => {
             leaveBooth();
             navigate('/');
@@ -352,11 +385,11 @@ export default function LDRBoothPage() {
             <span className="font-display text-xl text-purple-600">
               💕 LDR Booth
             </span>
-            <span className="badge badge-lavender text-xs">
+            <span className="badge badge-lavender text-xs font-hand font-bold">
               Code: {code}
             </span>
           </div>
-          <span className="text-[11px] text-gray-500 italic">
+          <span className="text-[11px] text-gray-500 italic font-cute">
             "Different places. Same memories."
           </span>
         </div>
@@ -369,7 +402,7 @@ export default function LDRBoothPage() {
                 key="online"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="flex items-center gap-1 badge badge-mint"
+                className="flex items-center gap-1 badge badge-mint font-cute"
               >
                 <motion.div
                   className="w-2 h-2 rounded-full bg-green-500"
@@ -384,7 +417,7 @@ export default function LDRBoothPage() {
                 key="offline"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex items-center gap-1 badge badge-pink"
+                className="flex items-center gap-1 badge badge-pink font-cute"
               >
                 <WifiOff className="w-3.5 h-3.5" />
                 Waiting for partner…
@@ -393,7 +426,7 @@ export default function LDRBoothPage() {
           </AnimatePresence>
 
           {completedCount > 0 && (
-            <button className="btn-ghost text-xs" onClick={handleClearAll} title="Clear all photos">
+            <button className="btn-ghost text-xs cursor-pointer" onClick={handleClearAll} title="Clear all photos">
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
           )}
@@ -413,7 +446,7 @@ export default function LDRBoothPage() {
               {/* YOUR CAMERA */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-bold text-pink-500 uppercase tracking-wider">
+                  <span className="text-xs font-bold text-pink-500 uppercase tracking-wider font-cute">
                     📷 You ({userName})
                   </span>
                   {isMyReady ? (
@@ -441,7 +474,7 @@ export default function LDRBoothPage() {
               {/* PARTNER'S CAMERA (WebRTC Live Stream) */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-bold text-purple-500 uppercase tracking-wider flex items-center gap-1">
+                  <span className="text-xs font-bold text-purple-500 uppercase tracking-wider flex items-center gap-1 font-cute">
                     💕 {partnerName}
                     {remoteStream && webrtcState === 'connected' ? (
                       <Video className="w-3 h-3 text-green-500" />
@@ -492,7 +525,7 @@ export default function LDRBoothPage() {
                           </p>
                           <button
                             onClick={restartConnection}
-                            className="btn-snappy py-1.5 px-4 text-xs mt-2"
+                            className="btn-scrapbook py-1.5 px-4 text-xs mt-2"
                           >
                             Retry Video 🔄
                           </button>
@@ -519,7 +552,7 @@ export default function LDRBoothPage() {
                     ) : (
                       <div className="flex flex-col items-center gap-2 text-gray-400 p-4">
                         <span className="text-3xl">💌</span>
-                        <p className="text-xs font-medium text-purple-300">
+                        <p className="text-xs font-medium text-purple-300 font-cute">
                           Waiting for {partnerName} to join:
                         </p>
                         <span className="font-display text-lg text-pink-400 tracking-wider">
@@ -539,57 +572,63 @@ export default function LDRBoothPage() {
             </div>
 
             {/* Synchronized Ready Bar */}
-            <div className="card p-3 flex items-center justify-between gap-3">
+            <div className="card-stationery p-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
                   onClick={handleToggleReady}
                   disabled={!camera.isReady || isStripComplete || displayCountdown !== null}
-                  className={`btn-snappy py-2 px-5 text-sm ${
-                    isMyReady ? 'btn-snappy-mint' : ''
+                  className={`btn-scrapbook py-2.5 px-5 text-sm cursor-pointer ${
+                    isMyReady ? 'btn-scrapbook-mint' : ''
                   }`}
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   {isStripComplete
-                    ? 'All 4 photos taken! ♡'
+                    ? `All ${maxPhotos} photos taken! ♡`
                     : isMyReady
                     ? '✓ You are Ready!'
                     : "I'm Ready ♡"}
                 </motion.button>
 
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-gray-500 font-cute">
                   {isStripComplete
                     ? 'Complete! View or share your strip on the right ✨'
                     : isPartnerReady && isMyReady
-                    ? '🌸 Both ready! Counting down…'
+                    ? '🌸 Both ready! Capturing…'
                     : isPartnerReady
                     ? '🌸 Partner is ready! Click ready to snap together.'
-                    : 'Click Ready when you are posed.'}
+                    : 'Click Ready when posed.'}
                 </span>
               </div>
 
               <CaptureButton
                 onClick={handleManualTrigger}
                 disabled={!camera.isReady || isStripComplete || displayCountdown !== null}
-                photosLeft={Math.max(0, MAX_PHOTOS - completedCount)}
+                photosLeft={Math.max(0, maxPhotos - completedCount)}
               />
             </div>
 
-            {/* Customization Tabs */}
-            <div className="card p-4">
-              <div className="flex rounded-xl overflow-hidden mb-3 bg-pink-100/60 p-0.5">
-                {(['filters', 'stickers'] as const).map((tab) => (
+            {/* Customization & Setup Tabs */}
+            <div className="card-stationery p-5">
+              <div className="grid grid-cols-4 gap-1 rounded-xl overflow-hidden mb-4 bg-pink-100/50 p-1">
+                {(['filters', 'layout', 'countdown', 'stickers'] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all capitalize ${
+                    className={`py-1.5 px-2 text-xs font-bold rounded-lg transition-all capitalize font-cute cursor-pointer ${
                       activeTab === tab
                         ? 'bg-gradient-to-r from-pink-400 to-purple-400 text-white shadow-sm'
-                        : 'text-gray-500 hover:text-gray-800'
+                        : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
-                    {tab === 'filters' ? '🎨 Filters (For You)' : '✨ Stickers'}
+                    {tab === 'filters'
+                      ? '🎨 Filters'
+                      : tab === 'layout'
+                      ? '🖼️ Layout'
+                      : tab === 'countdown'
+                      ? '⏱️ Timer'
+                      : '✨ Stickers'}
                   </button>
                 ))}
               </div>
@@ -598,6 +637,16 @@ export default function LDRBoothPage() {
                 {activeTab === 'filters' && (
                   <motion.div key="filters" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                     <FilterSelector selected={filter} onChange={setFilter} />
+                  </motion.div>
+                )}
+                {activeTab === 'layout' && (
+                  <motion.div key="layout" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                    <PhotoLayoutSelector selectedId={layoutId} onChange={handleLayoutChange} />
+                  </motion.div>
+                )}
+                {activeTab === 'countdown' && (
+                  <motion.div key="countdown" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                    <CountdownSelector value={countdown} onChange={setCountdown} />
                   </motion.div>
                 )}
                 {activeTab === 'stickers' && (
@@ -610,12 +659,12 @@ export default function LDRBoothPage() {
           </div>
 
           {/* Right: Shared Photostrip & QR Section */}
-          <div className="lg:w-64 w-full flex flex-col items-center gap-4">
-            <div className="card-white p-4 w-full flex flex-col items-center">
+          <div className="lg:w-72 w-full flex flex-col items-center gap-4">
+            <div className="card-stationery p-5 w-full flex flex-col items-center">
               <div className="flex items-center gap-2 mb-3">
                 <Heart className="w-4 h-4 text-pink-400 fill-pink-200" />
-                <span className="text-sm font-semibold text-gray-700">Side-by-Side Strip</span>
-                <span className="badge badge-lavender text-xs">{completedCount}/4</span>
+                <span className="text-sm font-semibold text-gray-700 font-cute">Side-by-Side Strip</span>
+                <span className="badge badge-lavender text-xs">{completedCount}/{maxPhotos}</span>
               </div>
 
               {/* Side-by-Side Dual Composite Strip Preview */}
@@ -623,6 +672,8 @@ export default function LDRBoothPage() {
                 photos={stripPhotos}
                 userName={`${userName} & ${partnerName}`}
                 showDownload={isStripComplete}
+                layoutId={layoutId}
+                photoCount={maxPhotos}
               />
 
               {/* Per-Slot Retake Buttons */}
