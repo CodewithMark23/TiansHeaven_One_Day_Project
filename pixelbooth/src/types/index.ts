@@ -32,7 +32,6 @@ export interface PhotoLayoutOption {
   photoCount: PhotoCount;
   columns: number;
   rows: number;
-  emoji: string;
 }
 
 export const PHOTO_LAYOUT_OPTIONS: PhotoLayoutOption[] = [
@@ -43,16 +42,15 @@ export const PHOTO_LAYOUT_OPTIONS: PhotoLayoutOption[] = [
     photoCount: 4,
     columns: 1,
     rows: 4,
-    emoji: '🎞️',
   },
   {
+
     id: '4-landscape',
     label: '4 Pose — Landscape',
     subtitle: '2x2 grid landscape photobooth',
     photoCount: 4,
     columns: 2,
     rows: 2,
-    emoji: '🖼️',
   },
   {
     id: '3-vertical',
@@ -61,7 +59,6 @@ export const PHOTO_LAYOUT_OPTIONS: PhotoLayoutOption[] = [
     photoCount: 3,
     columns: 1,
     rows: 3,
-    emoji: '🌅',
   },
   {
     id: '2-vertical',
@@ -70,7 +67,6 @@ export const PHOTO_LAYOUT_OPTIONS: PhotoLayoutOption[] = [
     photoCount: 2,
     columns: 1,
     rows: 2,
-    emoji: '👥',
   },
   {
     id: '6-grid',
@@ -79,7 +75,6 @@ export const PHOTO_LAYOUT_OPTIONS: PhotoLayoutOption[] = [
     photoCount: 6,
     columns: 2,
     rows: 3,
-    emoji: '📸',
   },
   {
     id: '1-pose',
@@ -88,7 +83,6 @@ export const PHOTO_LAYOUT_OPTIONS: PhotoLayoutOption[] = [
     photoCount: 1,
     columns: 1,
     rows: 1,
-    emoji: '👤',
   },
 ];
 
@@ -104,15 +98,15 @@ export interface FilterOption {
 
 export const FILTER_OPTIONS: FilterOption[] = [
   { id: 'original', label: 'Original', cssFilter: 'none', emoji: '✨' },
-  { id: 'bright',   label: 'Bright',   cssFilter: 'brightness(130%) contrast(105%) saturate(110%)', emoji: '☀️' },
-  { id: 'soft',     label: 'Soft',     cssFilter: 'brightness(110%) contrast(90%) saturate(80%) blur(0.3px)', emoji: '🌸' },
-  { id: 'warm',     label: 'Warm',     cssFilter: 'sepia(30%) saturate(130%) brightness(108%) hue-rotate(-10deg)', emoji: '🌅' },
-  { id: 'cool',     label: 'Cool',     cssFilter: 'hue-rotate(190deg) saturate(120%) brightness(105%)', emoji: '❄️' },
-  { id: 'vintage',  label: 'Vintage',  cssFilter: 'sepia(70%) contrast(90%) brightness(95%)', emoji: '🎞️' },
-  { id: 'grayscale',label: 'B&W',      cssFilter: 'grayscale(100%) contrast(110%)', emoji: '🖤' },
-  { id: 'pink',     label: 'Pink',     cssFilter: 'saturate(130%) hue-rotate(300deg) brightness(110%)', emoji: '🩷' },
-  { id: 'dreamy',   label: 'Dreamy',   cssFilter: 'brightness(115%) contrast(85%) saturate(120%) blur(0.4px)', emoji: '💭' },
-  { id: 'y2k',      label: 'Y2K',      cssFilter: 'saturate(180%) contrast(120%) hue-rotate(15deg) brightness(110%)', emoji: '💿' },
+  { id: 'bright', label: 'Bright', cssFilter: 'brightness(130%) contrast(105%) saturate(110%)', emoji: '☀️' },
+  { id: 'soft', label: 'Soft', cssFilter: 'brightness(110%) contrast(90%) saturate(80%) blur(0.3px)', emoji: '🌸' },
+  { id: 'warm', label: 'Warm', cssFilter: 'sepia(30%) saturate(130%) brightness(108%) hue-rotate(-10deg)', emoji: '🌅' },
+  { id: 'cool', label: 'Cool', cssFilter: 'hue-rotate(190deg) saturate(120%) brightness(105%)', emoji: '❄️' },
+  { id: 'vintage', label: 'Vintage', cssFilter: 'sepia(70%) contrast(90%) brightness(95%)', emoji: '🎞️' },
+  { id: 'grayscale', label: 'B&W', cssFilter: 'grayscale(100%) contrast(110%)', emoji: '🖤' },
+  { id: 'pink', label: 'Pink', cssFilter: 'saturate(130%) hue-rotate(300deg) brightness(110%)', emoji: '🩷' },
+  { id: 'dreamy', label: 'Dreamy', cssFilter: 'brightness(115%) contrast(85%) saturate(120%) blur(0.4px)', emoji: '💭' },
+  { id: 'y2k', label: 'Y2K', cssFilter: 'saturate(180%) contrast(120%) hue-rotate(15deg) brightness(110%)', emoji: '💿' },
 ];
 
 // ─── Frame templates ──────────────────────────────────────────────────────────
@@ -127,23 +121,23 @@ export interface FrameTemplate {
 }
 
 export const FRAME_TEMPLATES: FrameTemplate[] = [
-  { id: 'sweetheart',     label: 'Sweetheart',          emoji: '💕', borderStyle: 'solid',  decorations: ['💕','🩷','♡','🌸'] },
-  { id: 'clover',         label: 'Four-Leaf Clover',    emoji: '☘️', borderStyle: 'solid',  decorations: ['☘️','🌿','✿','✨'] },
-  { id: 'babyblue_diary', label: 'Baby Blue Diary',     emoji: '📖', borderStyle: 'solid',  decorations: ['☁️','⭐','💙','💫'] },
-  { id: 'strawberry',     label: 'Strawberry Milk',     emoji: '🍓', borderStyle: 'dashed', decorations: ['🍓','🥛','🎀','🌸'] },
-  { id: 'mint_picnic',    label: 'Mint Picnic',         emoji: '🧺', borderStyle: 'solid',  decorations: ['🌷','✿','🍃','✨'] },
-  { id: 'dreamy_ribbon',  label: 'Dreamy Ribbon',       emoji: '🎀', borderStyle: 'dashed', decorations: ['🎀','✨','💫','♡'] },
-  { id: 'love_letter',    label: 'Vintage Love Letter', emoji: '💌', borderStyle: 'double', decorations: ['💌','🌹','🕊️','📜'] },
+  { id: 'sweetheart', label: 'Sweetheart', emoji: '💕', borderStyle: 'solid', decorations: ['💕', '🩷', '♡', '🌸'] },
+  { id: 'clover', label: 'Four-Leaf Clover', emoji: '☘️', borderStyle: 'solid', decorations: ['☘️', '🌿', '✿', '✨'] },
+  { id: 'babyblue_diary', label: 'Baby Blue Diary', emoji: '📖', borderStyle: 'solid', decorations: ['☁️', '⭐', '💙', '💫'] },
+  { id: 'strawberry', label: 'Strawberry Milk', emoji: '🍓', borderStyle: 'dashed', decorations: ['🍓', '🥛', '🎀', '🌸'] },
+  { id: 'mint_picnic', label: 'Mint Picnic', emoji: '🧺', borderStyle: 'solid', decorations: ['🌷', '✿', '🍃', '✨'] },
+  { id: 'dreamy_ribbon', label: 'Dreamy Ribbon', emoji: '🎀', borderStyle: 'dashed', decorations: ['🎀', '✨', '💫', '♡'] },
+  { id: 'love_letter', label: 'Vintage Love Letter', emoji: '💌', borderStyle: 'double', decorations: ['💌', '🌹', '🕊️', '📜'] },
 ];
 
 export const FRAME_COLORS = [
-  { id: 'white',      label: 'Soft White',       hex: '#FFFFFF' },
-  { id: 'blush',      label: 'Blush Pink',       hex: '#F7C8D5' },
-  { id: 'babyblue',   label: 'Powder Blue',      hex: '#DDF5F7' },
-  { id: 'mint',       label: 'Mint Green',       hex: '#D8F5D2' },
-  { id: 'cream',      label: 'Warm Cream',       hex: '#FFF9E9' },
-  { id: 'strawberry', label: 'Strawberry Pink',  hex: '#F2AFC2' },
-  { id: 'charcoal',   label: 'Soft Gray',        hex: '#3D3D3D' },
+  { id: 'white', label: 'Soft White', hex: '#FFFFFF' },
+  { id: 'blush', label: 'Blush Pink', hex: '#F7C8D5' },
+  { id: 'babyblue', label: 'Powder Blue', hex: '#DDF5F7' },
+  { id: 'mint', label: 'Mint Green', hex: '#D8F5D2' },
+  { id: 'cream', label: 'Warm Cream', hex: '#FFF9E9' },
+  { id: 'strawberry', label: 'Strawberry Pink', hex: '#F2AFC2' },
+  { id: 'charcoal', label: 'Soft Gray', hex: '#3D3D3D' },
 ];
 
 // ─── Stickers ─────────────────────────────────────────────────────────────────
@@ -229,19 +223,19 @@ export interface JointCaptureSlot {
 
 export interface LDRRealtimeEvent {
   type:
-    | 'PARTNER_JOINED'
-    | 'PHOTO_TAKEN'
-    | 'COUNTDOWN_START'
-    | 'FLASH'
-    | 'CLEAR_PHOTOS'
-    | 'STRIP_READY'
-    | 'READY_CHANGE'
-    | 'START_COUNTDOWN'
-    | 'START_SYNC_COUNTDOWN'
-    | 'JOINT_PHOTO_UPLOADED'
-    | 'WEBRTC_SIGNAL'
-    | 'RETAKE_REQUEST'
-    | 'RETAKE_RESPONSE';
+  | 'PARTNER_JOINED'
+  | 'PHOTO_TAKEN'
+  | 'COUNTDOWN_START'
+  | 'FLASH'
+  | 'CLEAR_PHOTOS'
+  | 'STRIP_READY'
+  | 'READY_CHANGE'
+  | 'START_COUNTDOWN'
+  | 'START_SYNC_COUNTDOWN'
+  | 'JOINT_PHOTO_UPLOADED'
+  | 'WEBRTC_SIGNAL'
+  | 'RETAKE_REQUEST'
+  | 'RETAKE_RESPONSE';
   payload?: Record<string, unknown>;
 }
 

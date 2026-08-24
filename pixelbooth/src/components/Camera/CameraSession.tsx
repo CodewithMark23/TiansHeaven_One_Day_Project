@@ -126,7 +126,7 @@ export default function CameraSession({
   return (
     <div className="flex flex-col items-center gap-4 w-full max-w-lg mx-auto">
       {/* Progress */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 mt-6">
         {Array.from({ length: photoCount }).map((_, i) => (
           <motion.div
             key={i}
@@ -243,22 +243,24 @@ export default function CameraSession({
           </div>
         </div>
 
-        {/* Strip thumbnail row */}
-        {capturedPhotos.length > 0 && (
-          <div className="absolute bottom-3 left-3 right-3 z-20 flex gap-1">
-            {capturedPhotos.map((p, i) => (
-              <motion.div
-                key={p.id}
-                initial={{ opacity: 0, scale: 0.6 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="flex-1 aspect-[3/4] rounded overflow-hidden border-2 border-white"
-              >
-                <img src={p.dataUrl} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
-              </motion.div>
-            ))}
-          </div>
-        )}
       </div>
+
+      {/* Strip thumbnail row — same 3:4 shape as camera container, sized up for visibility */}
+      {capturedPhotos.length > 0 && (
+        <div className="flex gap-2 w-full max-w-sm flex-wrap justify-center">
+          {capturedPhotos.map((p, i) => (
+            <motion.div
+              key={p.id}
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="rounded-lg overflow-hidden border-2 border-white shadow-sm"
+              style={{ width: '80px', aspectRatio: '3/4' }}
+            >
+              <img src={p.dataUrl} alt={`Photo ${i + 1}`} className="w-full h-full object-contain" />  {/* was object-cover */}
+            </motion.div>
+          ))}
+        </div>
+      )}
 
       {/* Controls */}
       <div className="flex items-center gap-6">

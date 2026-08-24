@@ -14,9 +14,20 @@ export default function FilterSelector({ selected, onChange }: FilterSelectorPro
 
   return (
     <div className="w-full">
-      <p className="font-cute text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#D98FA8' }}>
-        🎨 Filter
-      </p>
+      <div
+        className="absolute top-0 left-1/2 -translate-x-1/2 px-5 py-1 rounded-sm text-xs font-cute"
+        style={{
+          background: 'rgba(230,200,90,0.5)',
+          color: '#9A7B1F',
+          border: '1px solid rgba(230,200,90,0.5)',
+          letterSpacing: '0.06em',
+          transform: 'translate(-50%, -20%) rotate(-1.5deg)',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        Filter
+      </div>
+      <div className="mb-3" />
       <div
         ref={scrollRef}
         className="flex gap-2 overflow-x-auto pb-1"

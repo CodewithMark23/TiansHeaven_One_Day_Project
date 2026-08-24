@@ -21,9 +21,20 @@ export default function FrameSelector({
 
   return (
     <div className="space-y-3">
-      <p className="font-cute text-xs font-bold uppercase tracking-widest" style={{ color: '#D98FA8' }}>
-        🖼 Frame
-      </p>
+      <div
+        className="absolute top-0 left-1/2 -translate-x-1/2 px-5 py-1 rounded-sm text-xs font-cute"
+        style={{
+          background: 'rgba(200, 227, 247, 0.6)',
+          color: '#8fc0d9ff',
+          border: '1px solid rgba(175, 219, 242, 0.4)',
+          letterSpacing: '0.06em',
+          transform: 'translate(-50%, -20%) rotate(-1.5deg)',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        Frame
+      </div>
+      <div className="mb-3" />
 
       {/* Frame grid */}
       <div className="grid grid-cols-3 gap-2">
@@ -33,19 +44,17 @@ export default function FrameSelector({
             whileHover={{ scale: 1.04, y: -2 }}
             whileTap={{ scale: 0.96 }}
             onClick={() => onFrameChange(frame)}
-            className={`frame-card relative overflow-hidden ${
-              selectedFrame.id === frame.id ? 'active' : ''
-            }`}
+            className={`frame-card relative overflow-hidden ${selectedFrame.id === frame.id ? 'active' : ''
+              }`}
           >
             {/* Frame preview mini */}
             <div
               className="w-full aspect-[3/4] rounded-lg flex flex-col items-center justify-center text-xs gap-0.5 relative overflow-hidden"
               style={{
                 background: selectedColor,
-                border: `2px ${frame.borderStyle} ${
-                  selectedColor === '#FFFFFF' ? '#D8BFC7' :
+                border: `2px ${frame.borderStyle} ${selectedColor === '#FFFFFF' ? '#D8BFC7' :
                   selectedColor === '#2D2D2D' ? '#555' : selectedColor
-                }`,
+                  }`,
               }}
             >
               {/* Decorations in corners */}

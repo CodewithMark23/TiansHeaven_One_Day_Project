@@ -111,12 +111,17 @@ export default function SoloBoothPage() {
           boxShadow: '0 3px 18px rgba(200, 238, 242, 0.35)',
         }}
       >
-        {/* Blue styled Home / Back button */}
+
         <motion.button
           whileHover={{ scale: 1.04 }}
           whileTap={{ scale: 0.96 }}
           onClick={goBack}
-          className="btn-scrapbook-blue px-4 py-1.5 text-xs flex items-center gap-1.5 font-cute cursor-pointer"
+          className="px-4 py-1.5 text-xs flex items-center gap-1.5 font-cute cursor-pointer"
+          style={{
+            background: 'transparent',
+            color: '#D98FA8',
+            border: 'none',
+          }}
         >
           <ArrowLeft className="w-4 h-4" />
           {step === 'setup' ? 'Home' : 'Back'}
@@ -133,7 +138,7 @@ export default function SoloBoothPage() {
         </div>
 
         {/* Show badge only for active interactive steps beyond setup */}
-        {step !== 'setup' ? (
+        {step !== 'setup' && step !== 'camera' ? (
           <div className="badge badge-pink">{STEPS[currentIdx].emoji} {STEPS[currentIdx].label}</div>
         ) : (
           <div className="w-16" />
@@ -155,9 +160,9 @@ export default function SoloBoothPage() {
             {/* ── STEP 0: Setup ───────────────────────────────────────────────── */}
             {step === 'setup' && (
               <div className="max-w-3xl mx-auto">
-                <div className="text-center mb-6">
+                <div className="text-center mb-6 mt-4">
                   <h1 className="font-display text-3xl mb-1" style={{ color: '#D98FA8' }}>
-                    Solo Booth Setup 🎀
+                    Solo Booth Setup
                   </h1>
                   <p className="font-cute text-sm" style={{ color: '#B8A0A8' }}>
                     Customize your session layout, countdown, filters & frame ♡
@@ -166,23 +171,90 @@ export default function SoloBoothPage() {
 
                 <div className="flex flex-col gap-5">
                   {/* Photo Layout Selector */}
-                  <div className="card-stationery-blue p-6">
+                  <div className="card-stationery-blue p-6 relative">
+                    <motion.span
+                      animate={{ rotate: [0, 10, -10, 0] }}
+                      transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                      style={{
+                        position: 'absolute',
+                        top: '-10px',
+                        right: '16px',
+                        fontSize: '1.3rem',
+                        color: '#F2AFC2',
+                        filter: 'drop-shadow(0 1px 3px rgba(242,175,194,0.5))',
+                        zIndex: 20,
+                      }}
+                    >
+                      ✿
+                    </motion.span>
                     <PhotoLayoutSelector selectedId={layoutId} onChange={handleLayoutChange} />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     {/* Left column */}
                     <div className="flex flex-col gap-5">
-                      <div className="card-stationery-mint p-5">
+                      <div className="card-stationery-mint p-5 relative">
+                        <motion.span
+                          animate={{ rotate: [0, 10, -10, 0] }}
+                          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                          style={{
+                            position: 'absolute',
+                            top: '-10px',
+                            right: '16px',
+                            fontSize: '1.3rem',
+                            color: '#C9EFC8',
+                            filter: 'drop-shadow(0 1px 3px rgba(201,239,200,0.5))',
+                            zIndex: 20,
+                          }}
+                        >
+                          ✿
+                        </motion.span>
                         <CountdownSelector value={countdown} onChange={setCountdown} />
                       </div>
-                      <div className="card-stationery p-5">
+                      <div
+                        className="card-stationery-mint p-5 relative"
+                        style={{
+                          background: 'linear-gradient(145deg, #FFFDF5, #FFF6DC)',
+                          border: '1.5px solid rgba(230, 200, 90, 0.5)',
+                          boxShadow: '0 3px 18px rgba(230, 200, 90, 0.25)',
+                        }}
+                      >
+                        <motion.span
+                          animate={{ rotate: [0, 10, -10, 0] }}
+                          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                          style={{
+                            position: 'absolute',
+                            top: '-10px',
+                            right: '16px',
+                            fontSize: '1.3rem',
+                            color: '#E6C85A',
+                            filter: 'drop-shadow(0 1px 3px rgba(230,200,90,0.5))',
+                            zIndex: 20,
+                          }}
+                        >
+                          ✿
+                        </motion.span>
                         <FilterSelector selected={filter} onChange={setFilter} />
                       </div>
                     </div>
 
                     {/* Right column — frame */}
-                    <div className="card-stationery p-5">
+                    <div className="card-stationery p-5 relative">
+                      <motion.span
+                        animate={{ rotate: [0, 10, -10, 0] }}
+                        transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                        style={{
+                          position: 'absolute',
+                          top: '-10px',
+                          right: '16px',
+                          fontSize: '1.3rem',
+                          color: '#afdbf2ff',
+                          filter: 'drop-shadow(0 1px 3px rgba(175, 234, 242, 0.5))',
+                          zIndex: 20,
+                        }}
+                      >
+                        ✿
+                      </motion.span>
                       <FrameSelector
                         selectedFrame={frameTemplate}
                         selectedColor={frameColor}
@@ -196,7 +268,7 @@ export default function SoloBoothPage() {
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className="btn-scrapbook w-full mt-6 py-3.5 text-base"
+                  className="btn-scrapbook w-full mt-6 mb-8 py-3.5 text-base"
                   onClick={goNext}
                 >
                   Start Session 📸
