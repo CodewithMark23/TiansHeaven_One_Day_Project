@@ -5,7 +5,7 @@ import type { StickerItem } from '../../types';
 import { nanoid } from 'nanoid';
 import { Upload } from 'lucide-react';
 
-type Tab = 'cute' | 'funny' | 'seasonal';
+type Tab = 'cute' | 'aesthetic' | 'funny' | 'love' | 'party';
 
 interface StickerPaletteProps {
   onAdd: (sticker: StickerItem) => void;
@@ -38,7 +38,7 @@ export default function StickerPalette({ onAdd }: StickerPaletteProps) {
         content: src,
         x: 30 + Math.random() * 40,
         y: 30 + Math.random() * 30,
-        scale: 1.5,
+        scale: 1,
         rotation: 0,
       });
     };
@@ -51,18 +51,18 @@ export default function StickerPalette({ onAdd }: StickerPaletteProps) {
   return (
     <div className="w-full">
       {/* Tabs */}
-      <div className="flex gap-1 mb-3">
-        {(['cute', 'funny', 'seasonal'] as Tab[]).map((t) => (
+      <div className="flex gap-1 flex-wrap mb-3">
+        {(['cute', 'aesthetic', 'funny', 'love', 'party'] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-3 py-1 rounded-full text-xs font-bold transition-all capitalize ${
+            className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all capitalize font-cute cursor-pointer ${
               tab === t
                 ? 'bg-gradient-to-r from-pink-400 to-purple-400 text-white shadow-sm'
-                : 'bg-white/60 text-gray-400 hover:bg-pink-50'
+                : 'bg-white/70 text-gray-500 hover:bg-pink-50'
             }`}
           >
-            {t === 'cute' ? '🌸 Cute' : t === 'funny' ? '😂 Funny' : '🎄 Seasonal'}
+            {t === 'cute' ? '🌸 Cute' : t === 'aesthetic' ? '✨ Vintage' : t === 'funny' ? '😂 Funny' : t === 'love' ? '💖 Love' : '🎉 Party'}
           </button>
         ))}
       </div>

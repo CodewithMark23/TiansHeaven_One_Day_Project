@@ -137,12 +137,7 @@ export default function SoloBoothPage() {
           ))}
         </div>
 
-        {/* Show badge only for active interactive steps beyond setup */}
-        {step !== 'setup' && step !== 'camera' ? (
-          <div className="badge badge-pink">{STEPS[currentIdx].emoji} {STEPS[currentIdx].label}</div>
-        ) : (
-          <div className="w-16" />
-        )}
+        <div className="w-16" />
       </header>
 
       {/* Step content */}
@@ -302,7 +297,7 @@ export default function SoloBoothPage() {
 
             {/* ── STEP 3: Customize ───────────────────────────────────────────── */}
             {step === 'customize' && (
-              <div className="max-w-3xl mx-auto">
+              <div className="max-w-3xl mx-auto pt-6 md:pt-8">
                 <div className="text-center mb-6">
                   <h1 className="font-display text-3xl mb-1" style={{ color: '#D98FA8' }}>
                     Style your strip ✨
@@ -330,7 +325,7 @@ export default function SoloBoothPage() {
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className="btn-scrapbook w-full mt-5 py-3.5 text-base"
+                  className="btn-scrapbook w-full mt-5 mb-8 py-3.5 text-base"
                   onClick={handleGenerateStrip}
                 >
                   Generate Strip 🖨️
@@ -341,27 +336,20 @@ export default function SoloBoothPage() {
 
             {/* ── STEP 4: Print ───────────────────────────────────────────────── */}
             {step === 'print' && (
-              <div className="max-w-sm mx-auto">
-                <div className="text-center mb-4">
-                  <h1 className="font-display text-3xl mb-1" style={{ color: '#D98FA8' }}>
-                    Almost done! 🎉
-                  </h1>
-                </div>
-                <div className="card-stationery p-6">
-                  <PrintAnimation
-                    stripDataUrl={stripDataUrl}
-                    caption={caption}
-                    frame={frameTemplate.id}
-                    frameColor={frameColor}
-                    onBack={() => {
-                      setPhotos([]);
-                      setStickers([]);
-                      setCaption('');
-                      setStripDataUrl('');
-                      setStep('setup');
-                    }}
-                  />
-                </div>
+              <div className="max-w-3xl mx-auto pt-6 md:pt-8">
+                <PrintAnimation
+                  stripDataUrl={stripDataUrl}
+                  caption={caption}
+                  frame={frameTemplate.id}
+                  frameColor={frameColor}
+                  onBack={() => {
+                    setPhotos([]);
+                    setStickers([]);
+                    setCaption('');
+                    setStripDataUrl('');
+                    setStep('setup');
+                  }}
+                />
               </div>
             )}
 

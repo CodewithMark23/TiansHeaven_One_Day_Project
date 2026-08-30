@@ -2,7 +2,7 @@ import type { CapturedPhoto, StripOptions } from '../types';
 
 const STRIP_WIDTH = 520;
 const PHOTO_WIDTH = 480;
-const PHOTO_HEIGHT = 640;
+const PHOTO_HEIGHT = 360;
 const PADDING = 20;
 const GAP = 8;
 const FOOTER_HEIGHT = 60;

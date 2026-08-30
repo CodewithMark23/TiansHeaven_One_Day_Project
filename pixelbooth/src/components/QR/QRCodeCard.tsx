@@ -94,28 +94,12 @@ export default function QRCodeCard({ memoryUrl, onOpenMemory }: QRCodeCardProps)
         ✿
       </motion.span>
 
-      {/* "Scan Here ♡" header — matching reference */}
-      <div className="flex items-center gap-2 mb-3 relative z-10">
-        {/* Heart box — mint green, matching reference */}
-        <div
-          style={{
-            width: '36px',
-            height: '36px',
-            background: 'linear-gradient(135deg, #D8F5D2, #C9EFC8)',
-            border: '1px solid rgba(201,239,200,0.7)',
-            borderRadius: '0.5rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1rem',
-          }}
-        >
-          ♡
-        </div>
+      {/* "Scan Here ♡" header — plain text, no box */}
+      <div className="flex items-center justify-center mb-3 relative z-10 w-full">
         <span
           className="font-display"
           style={{
-            fontSize: '1.7rem',
+            fontSize: 'clamp(1.15rem, 5vw, 1.7rem)',
             color: '#D98FA8',
             letterSpacing: '0.01em',
             lineHeight: 1,
@@ -125,26 +109,28 @@ export default function QRCodeCard({ memoryUrl, onOpenMemory }: QRCodeCardProps)
         </span>
       </div>
 
-      {/* Dots row — like the reference image */}
+      {/* Flower row — matching site's sticker palette */}
       <div className="flex gap-1.5 mb-3 relative z-10">
-        {[...Array(5)].map((_, i) => (
-          <div
+        {['#C9EFC8', '#F2AFC2', '#afdbf2ff', '#E6C85A', '#F7C8D5'].map((color, i) => (
+          <span
             key={i}
             style={{
-              width: '7px',
-              height: '7px',
-              borderRadius: '50%',
-              background: 'rgba(216,191,199,0.55)',
+              fontSize: '0.7rem',
+              lineHeight: 1,
+              color,
+              filter: `drop-shadow(0 1px 2px ${color}88)`,
             }}
-          />
+          >
+            ✿
+          </span>
         ))}
       </div>
 
       {/* QR Code container — cream paper box with blush border */}
       <div
         style={{
-          width: '168px',
-          height: '168px',
+          width: 'clamp(150px, 55vw, 200px)',
+          height: 'clamp(150px, 55vw, 200px)',
           background: '#FFF9E9',
           border: '1.5px solid rgba(247,200,213,0.6)',
           borderRadius: '0.75rem',

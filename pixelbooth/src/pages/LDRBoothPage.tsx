@@ -456,7 +456,7 @@ export default function LDRBoothPage() {
                   )}
                 </div>
 
-                <div className="relative camera-frame" style={{ aspectRatio: '3/4' }}>
+                <div className="relative camera-frame" style={{ aspectRatio: '4/3' }}>
                   <CameraView
                     camera={camera}
                     filter={filter}
@@ -493,7 +493,7 @@ export default function LDRBoothPage() {
 
                 <div
                   className="relative camera-frame flex flex-col items-center justify-center text-center p-0 bg-black/90 overflow-hidden"
-                  style={{ aspectRatio: '3/4' }}
+                  style={{ aspectRatio: '4/3' }}
                 >
                   {partnerFlashing && (
                     <div className="absolute inset-0 bg-white z-30 animate-pulse" />

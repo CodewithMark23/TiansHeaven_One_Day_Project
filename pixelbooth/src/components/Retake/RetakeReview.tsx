@@ -88,9 +88,9 @@ export default function RetakeReview({
   const cols = photos.length === 6 ? 3 : photos.length === 1 ? 1 : 2;
 
   return (
-    <div className="w-full max-w-xl mx-auto flex flex-col gap-5">
+    <div className="w-full max-w-xl mx-auto flex flex-col gap-5 pt-6 md:pt-8">
       <div className="text-center">
-        <h2 className="font-display text-2xl text-pink-500 mb-1">Review your photos 🌸</h2>
+        <h2 className="font-display text-2xl mb-1" style={{ color: '#D98FA8' }}>Review your photos</h2>
         <p className="text-sm text-gray-400">Happy with them? Or retake any you don't love!</p>
       </div>
 
@@ -107,13 +107,13 @@ export default function RetakeReview({
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.9 }}
-              className="card-white p-4 w-full max-w-sm flex flex-col items-center gap-4"
+              className="card-stationery p-4 w-full max-w-md flex flex-col items-center gap-4"
             >
-              <div className="relative w-full camera-frame" style={{ aspectRatio: '3/4' }}>
+              <div className="relative w-full camera-frame" style={{ aspectRatio: '4/3' }}>
                 <video
                   ref={videoRef}
                   autoPlay playsInline muted
-                  className="camera-video"
+                  className="camera-video w-full h-full object-cover"
                   style={{ transform: 'scaleX(-1)' }}
                 />
                 <AnimatePresence>
@@ -137,10 +137,10 @@ export default function RetakeReview({
                   <div className="absolute inset-0 bg-white z-30" />
                 )}
               </div>
-              <p className="text-sm text-gray-500">Retaking Photo {retakingIdx + 1}</p>
+              <p className="text-sm text-gray-500 font-cute">Retaking Photo {retakingIdx + 1}</p>
               <div className="flex gap-3">
                 <button
-                  className="btn-ghost"
+                  className="btn-ghost text-xs font-cute"
                   onClick={() => {
                     stopCamera(streamRef.current);
                     setCameraActive(false);
@@ -149,8 +149,8 @@ export default function RetakeReview({
                 >
                   Cancel
                 </button>
-                <button className="btn-snappy" onClick={doCapture}>
-                  📸 Snap!
+                <button className="btn-snappy text-xs" onClick={doCapture}>
+                  Snap!
                 </button>
               </div>
             </motion.div>
@@ -171,8 +171,8 @@ export default function RetakeReview({
             transition={{ delay: i * 0.08 }}
             className="flex flex-col gap-1.5"
           >
-            <div className="relative rounded-xl overflow-hidden border-2 border-pink-100" style={{ aspectRatio: '3/4' }}>
-              <img src={photo.dataUrl} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+            <div className="relative rounded-md overflow-hidden border border-pink-200/80 shadow-xs bg-white" style={{ aspectRatio: '4/3' }}>
+              <img src={photo.dataUrl} alt={`Photo ${i + 1}`} className="w-full h-full object-contain bg-white" />
               <div className="absolute top-1.5 left-1.5">
                 <span className="badge badge-pink" style={{ fontSize: '9px' }}>#{i + 1}</span>
               </div>

@@ -4,6 +4,8 @@ import { Palette } from 'lucide-react';
 import type { CapturedPhoto, FrameTemplate, StickerItem, PhotoLayoutId } from '../../types';
 import { STRIP_BORDER_COLORS, PHOTO_LAYOUT_OPTIONS } from '../../types';
 import StickerPalette from '../Stickers/StickerPalette';
+import StickerCanvas from '../Stickers/StickerCanvas';
+import type { StickerCanvasRef } from '../Stickers/StickerCanvas';
 
 interface StripCanvasProps {
   photos: CapturedPhoto[];
@@ -24,6 +26,7 @@ export interface StripCanvasRef {
 const StripCanvas = forwardRef<StripCanvasRef, StripCanvasProps>(
   ({ photos, frameTemplate, frameColor, caption, stickers, layoutId = '4-vertical', onCaptionChange, onStickersChange, userName }, ref) => {
     const stripRef = useRef<HTMLDivElement>(null);
+    const stickerCanvasRef = useRef<StickerCanvasRef>(null);
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [localColor, setLocalColor] = useState(frameColor);
 
@@ -32,19 +35,54 @@ const StripCanvas = forwardRef<StripCanvasRef, StripCanvasProps>(
     // Compute container width based on columns
     const containerWidth =
       layoutOpt.columns === 3 ? 380 :
-      layoutOpt.columns === 2 ? 320 :
-      layoutOpt.id === '1-pose' ? 280 : 200;
+        layoutOpt.columns === 2 ? 320 :
+          layoutOpt.id === '1-pose' ? 280 : 200;
 
     // Export strip to PNG via html2canvas
     const getDataUrl = async (): Promise<string> => {
-      const { default: html2canvas } = await import('html2canvas');
+      stickerCanvasRef.current?.deselect();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       if (!stripRef.current) return '';
+
+      // Measure the on-screen sticker overlay dimensions (= strip padding box)
+      const overlayEl = stripRef.current.querySelector('.sticker-overlay-container') as HTMLElement | null;
+      const overlayRect = overlayEl?.getBoundingClientRect();
+      const overlayW = overlayRect?.width ?? stripRef.current.clientWidth;
+      const overlayH = overlayRect?.height ?? stripRef.current.clientHeight;
+
+      const rect = stripRef.current.getBoundingClientRect();
+      const { default: html2canvas } = await import('html2canvas');
+
       const canvas = await html2canvas(stripRef.current, {
         useCORS: true,
         allowTaint: true,
         scale: 2,
         backgroundColor: null,
+        logging: false,
+        scrollX: 0,
+        scrollY: 0,
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+        onclone: (_clonedDoc, element) => {
+          element.style.width = `${Math.round(rect.width)}px`;
+          element.style.height = `${Math.round(rect.height)}px`;
+          element.style.transform = 'none';
+
+          // Convert sticker % positions to exact pixel positions
+          // so html2canvas doesn't recompute them against a different height
+          const stickerNodes = element.querySelectorAll('.sticker-node') as NodeListOf<HTMLElement>;
+          stickerNodes.forEach((node) => {
+            const leftPct = parseFloat(node.style.left);
+            const topPct = parseFloat(node.style.top);
+            if (!isNaN(leftPct) && !isNaN(topPct)) {
+              node.style.left = `${(leftPct / 100) * overlayW}px`;
+              node.style.top = `${(topPct / 100) * overlayH}px`;
+            }
+          });
+        },
       });
+
       return canvas.toDataURL('image/png', 1.0);
     };
 
@@ -64,11 +102,10 @@ const StripCanvas = forwardRef<StripCanvasRef, StripCanvasProps>(
               background: activeColor,
               borderRadius: 12,
               padding: '14px 14px 10px',
-              border: `4px ${frameTemplate.borderStyle} ${
-                activeColor === '#FFFFFF' ? '#e0c0cc' :
-                activeColor === '#2D2D2D' ? '#555' :
-                activeColor
-              }`,
+              border: `4px ${frameTemplate.borderStyle} ${activeColor === '#FFFFFF' ? '#e0c0cc' :
+                  activeColor === '#2D2D2D' ? '#555' :
+                    activeColor
+                }`,
             }}
           >
             {/* Frame decorations */}
@@ -99,46 +136,38 @@ const StripCanvas = forwardRef<StripCanvasRef, StripCanvasProps>(
               {photos.map((photo, i) => (
                 <div
                   key={photo.id || i}
-                  className="relative overflow-hidden shadow-xs"
-                  style={{ borderRadius: 4, aspectRatio: '4/3', width: '100%' }}
+                  className="relative overflow-hidden shadow-xs bg-black w-full"
+                  style={{
+                    borderRadius: 4,
+                    height: 0,
+                    paddingBottom: '75%',
+                    position: 'relative',
+                  }}
                 >
                   <img
                     src={photo.dataUrl}
                     alt={`Photo ${i + 1}`}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain',
+                      display: 'block',
+                    }}
                   />
                 </div>
               ))}
             </div>
 
-            {/* Sticker overlay on strip */}
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                pointerEvents: 'none',
-                overflow: 'hidden',
-                borderRadius: 8,
-              }}
-            >
-              {stickers.map((s) => (
-                <div
-                  key={s.id}
-                  style={{
-                    position: 'absolute',
-                    left: `${s.x}%`,
-                    top: `${s.y}%`,
-                    transform: `translate(-50%,-50%) rotate(${s.rotation}deg)`,
-                  }}
-                >
-                  {s.type === 'emoji' ? (
-                    <span style={{ fontSize: `${1.5 * s.scale}rem`, lineHeight: 1 }}>{s.content}</span>
-                  ) : (
-                    <img src={s.content} alt="sticker" style={{ width: `${50 * s.scale}px`, objectFit: 'contain' }} />
-                  )}
-                </div>
-              ))}
-            </div>
+            {/* Interactive Sticker Overlay (Clipped inside strip container) */}
+            <StickerCanvas
+              ref={stickerCanvasRef}
+              stickers={stickers}
+              onChange={onStickersChange}
+              containerRef={stripRef}
+            />
 
             {/* Footer */}
             <div style={{ marginTop: 4, textAlign: 'center' }}>
@@ -229,7 +258,7 @@ const StripCanvas = forwardRef<StripCanvasRef, StripCanvasProps>(
 
           {stickers.length > 0 && (
             <p className="text-xs text-gray-400">
-              💡 Tip: stickers appear on the strip preview. Click the strip to position them.
+              💡 Tip: stickers appear on the strip. Click the sticker to position them.
             </p>
           )}
         </div>

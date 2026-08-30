@@ -102,7 +102,7 @@ const PhotoStrip = forwardRef<PhotoStripRef, PhotoStripProps>(
                     src={photo.dataUrl}
                     alt={`Photo ${i + 1}`}
                     className="strip-photo"
-                    style={{ borderRadius: '4px', aspectRatio: '4/3', objectFit: 'cover', width: '100%' }}
+                    style={{ borderRadius: '4px', aspectRatio: '4/3', objectFit: 'contain', width: '100%', backgroundColor: '#000' }}
                   />
                 </motion.div>
               ))

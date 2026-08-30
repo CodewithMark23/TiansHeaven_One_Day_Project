@@ -124,187 +124,196 @@ export default function CameraSession({
   const filterCSS = getFilterCSS(filter);
 
   return (
-    <div className="flex flex-col items-center gap-4 w-full max-w-lg mx-auto">
-      {/* Progress */}
-      <div className="flex items-center gap-2 mt-6">
-        {Array.from({ length: photoCount }).map((_, i) => (
-          <motion.div
-            key={i}
-            className="rounded-full transition-all duration-300"
-            style={{
-              width: i < capturedPhotos.length ? 28 : 10,
-              height: 10,
-              background:
-                i < capturedPhotos.length
-                  ? 'linear-gradient(90deg,#FF8FAB,#C9B1FF)'
-                  : i === currentPhotoIdx
-                    ? '#FFB6C1'
-                    : 'rgba(255,182,193,0.3)',
-            }}
-          />
-        ))}
-        <span className="text-xs font-semibold text-pink-400 ml-1">
-          {capturedPhotos.length}/{photoCount}
-        </span>
-      </div>
+    <div className="flex flex-col items-center gap-4 w-full max-w-5xl mx-auto px-2 pt-6 md:pt-8">
 
-      {/* Camera frame */}
-      <div
-        className="camera-frame w-full relative"
-        style={{ aspectRatio: '3/4', maxHeight: '65dvh' }}
-      >
-        {cameraError ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-pink-50 gap-3 p-6 text-center">
-            <span className="text-4xl">📷</span>
-            <p className="text-sm text-gray-500">{cameraError}</p>
-            <button className="btn-snappy text-sm" onClick={() => initCamera(facingMode)}>
-              Try Again
-            </button>
-          </div>
-        ) : (
-          <>
-            <video
-              ref={videoRef}
-              autoPlay playsInline muted
-              className="camera-video"
-              style={{
-                filter: filterCSS,
-                transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
-                opacity: isReady ? 1 : 0,
-                transition: 'opacity 0.3s',
-              }}
-            />
-            {!isReady && (
-              <div className="absolute inset-0 flex items-center justify-center bg-pink-50">
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
-                  className="text-3xl"
-                >
-                  📷
-                </motion.div>
+
+      {/* Main Container: Camera on left/center, Captured Shot Previews on right */}
+      <div className="flex flex-col md:flex-row items-center md:items-start justify-center gap-6 w-full relative">
+        {/* Left Column: Main Camera View */}
+        <div className="flex flex-col items-center gap-3 w-full max-w-2xl">
+          {/* Camera Frame: 4:3 Landscape with original cute camera-frame style */}
+          <div
+            className="camera-frame w-full relative"
+            style={{ aspectRatio: '4/3' }}
+          >
+            {cameraError ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-pink-50 gap-3 p-6 text-center">
+                <span className="text-4xl">📷</span>
+                <p className="text-sm text-gray-500">{cameraError}</p>
+                <button className="btn-snappy text-sm" onClick={() => initCamera(facingMode)}>
+                  Try Again
+                </button>
               </div>
+            ) : (
+              <>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="camera-video w-full h-full object-cover"
+                  style={{
+                    filter: filterCSS,
+                    transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
+                    opacity: isReady ? 1 : 0,
+                    transition: 'opacity 0.3s',
+                  }}
+                />
+                {!isReady && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-pink-50">
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
+                      className="text-3xl"
+                    >
+                      📷
+                    </motion.div>
+                  </div>
+                )}
+              </>
             )}
-          </>
-        )}
 
-        {/* Countdown overlay */}
-        <AnimatePresence>
-          {countdownNum !== null && (
-            <div className="countdown-overlay">
-              <div className="relative z-10 flex flex-col items-center gap-2">
-                <motion.p className="text-white/80 font-bold text-sm tracking-widest uppercase">
-                  Get ready!
-                </motion.p>
-                <AnimatePresence mode="wait">
-                  <motion.span
-                    key={countdownNum}
-                    initial={{ scale: 0.2, opacity: 0, y: 30 }}
-                    animate={{ scale: 1, opacity: 1, y: 0 }}
-                    exit={{ scale: 1.8, opacity: 0, y: -20 }}
-                    transition={{ type: 'spring', stiffness: 280, damping: 18 }}
-                    className="font-display text-white drop-shadow-xl"
-                    style={{ fontSize: '7rem', lineHeight: 1, textShadow: '0 0 40px rgba(255,143,171,0.8)' }}
-                  >
-                    {countdownNum}
-                  </motion.span>
-                </AnimatePresence>
+            {/* Countdown overlay */}
+            <AnimatePresence>
+              {countdownNum !== null && (
+                <div className="countdown-overlay">
+                  <div className="relative z-10 flex flex-col items-center gap-2">
+                    <motion.p className="text-white/80 font-bold text-sm tracking-widest uppercase">
+                      Get ready!
+                    </motion.p>
+                    <AnimatePresence mode="wait">
+                      <motion.span
+                        key={countdownNum}
+                        initial={{ scale: 0.2, opacity: 0, y: 30 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 1.8, opacity: 0, y: -20 }}
+                        transition={{ type: 'spring', stiffness: 280, damping: 18 }}
+                        className="font-display text-white drop-shadow-xl"
+                        style={{ fontSize: '7rem', lineHeight: 1, textShadow: '0 0 40px rgba(255,143,171,0.8)' }}
+                      >
+                        {countdownNum}
+                      </motion.span>
+                    </AnimatePresence>
+                  </div>
+                </div>
+              )}
+            </AnimatePresence>
+
+            {/* Shutter flash */}
+            <AnimatePresence>
+              {isFlashing && (
+                <motion.div
+                  key="flash"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.06 }}
+                  className="absolute inset-0 bg-white z-30 pointer-events-none"
+                />
+              )}
+            </AnimatePresence>
+
+            {/* Corner guides */}
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute top-3 left-3 w-7 h-7 border-t-2 border-l-2 border-white/50 rounded-tl-xl" />
+              <div className="absolute top-3 right-3 w-7 h-7 border-t-2 border-r-2 border-white/50 rounded-tr-xl" />
+              <div className="absolute bottom-3 left-3 w-7 h-7 border-b-2 border-l-2 border-white/50 rounded-bl-xl" />
+              <div className="absolute bottom-3 right-3 w-7 h-7 border-b-2 border-r-2 border-white/50 rounded-br-xl" />
+            </div>
+
+            {/* Photo counter badge */}
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20">
+              <div className="badge badge-pink backdrop-blur-sm">
+                📸 Photo {currentPhotoIdx + 1} of {photoCount}
               </div>
             </div>
-          )}
-        </AnimatePresence>
+          </div>
 
-        {/* Flash */}
-        <AnimatePresence>
-          {isFlashing && (
-            <motion.div
-              key="flash"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.06 }}
-              className="absolute inset-0 bg-white z-30 pointer-events-none"
-            />
-          )}
-        </AnimatePresence>
+          {/* Controls */}
+          <div className="flex items-center gap-6 mt-1">
+            {/* Flip */}
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={flipCamera}
+              disabled={isCapturing}
+              className="btn-outline px-4 py-2 text-sm"
+            >
+              <FlipHorizontal className="w-4 h-4" />
+              Flip
+            </motion.button>
 
-        {/* Corner guides */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-3 left-3 w-7 h-7 border-t-2 border-l-2 border-white/50 rounded-tl-xl" />
-          <div className="absolute top-3 right-3 w-7 h-7 border-t-2 border-r-2 border-white/50 rounded-tr-xl" />
-          <div className="absolute bottom-3 left-3 w-7 h-7 border-b-2 border-l-2 border-white/50 rounded-bl-xl" />
-          <div className="absolute bottom-3 right-3 w-7 h-7 border-b-2 border-r-2 border-white/50 rounded-br-xl" />
-        </div>
+            {/* Shutter */}
+            <div className="relative">
+              {!isCapturing && isReady && (
+                <>
+                  <motion.div
+                    className="absolute inset-0 rounded-full border-2 border-pink-300"
+                    animate={{ scale: [1, 1.5], opacity: [0.7, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: 'easeOut' }}
+                  />
+                  <motion.div
+                    className="absolute inset-0 rounded-full border-2 border-purple-300"
+                    animate={{ scale: [1, 1.9], opacity: [0.4, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: 'easeOut', delay: 0.5 }}
+                  />
+                </>
+              )}
+              <motion.button
+                whileHover={isCapturing ? {} : { scale: 1.08 }}
+                whileTap={isCapturing ? {} : { scale: 0.92 }}
+                onClick={runCountdownAndCapture}
+                disabled={isCapturing || !isReady || sessionDone}
+                className="shutter-btn z-10 relative"
+              >
+                <Camera className="w-7 h-7 text-white" />
+              </motion.button>
+            </div>
 
-        {/* Photo counter badge */}
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20">
-          <div className="badge badge-pink backdrop-blur-sm">
-            📸 Photo {currentPhotoIdx + 1} of {photoCount}
+            {/* Cancel */}
+            <button className="btn-ghost text-xs" onClick={onCancel}>
+              Cancel
+            </button>
           </div>
         </div>
 
-      </div>
-
-      {/* Strip thumbnail row — same 3:4 shape as camera container, sized up for visibility */}
-      {capturedPhotos.length > 0 && (
-        <div className="flex gap-2 w-full max-w-sm flex-wrap justify-center">
-          {capturedPhotos.map((p, i) => (
-            <motion.div
-              key={p.id}
-              initial={{ opacity: 0, scale: 0.6 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="rounded-lg overflow-hidden border-2 border-white shadow-sm"
-              style={{ width: '80px', aspectRatio: '3/4' }}
-            >
-              <img src={p.dataUrl} alt={`Photo ${i + 1}`} className="w-full h-full object-contain" />  {/* was object-cover */}
-            </motion.div>
-          ))}
+        {/* Right Column: Preview of Captured Shot (Website styled, slight corner rounding) */}
+        <div className="w-full md:w-52 flex flex-col gap-2">
+          <span className="text-xs font-bold font-cute tracking-wide text-center md:text-left" style={{ color: '#fa9dd5ff' }}>
+            Captured Shots Preview
+          </span>
+          <div className="flex flex-row md:flex-col gap-2.5 flex-wrap justify-center md:justify-start">
+            {Array.from({ length: photoCount }).map((_, i) => {
+              const photo = capturedPhotos[i];
+              return (
+                <div
+                  key={i}
+                  className="relative rounded-md overflow-hidden border border-pink-200/80 shadow-xs bg-white"
+                  style={{ width: '100%', maxWidth: '160px', aspectRatio: '4/3' }}
+                >
+                  {photo ? (
+                    <motion.img
+                      initial={{ opacity: 0, scale: 0.85 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      src={photo.dataUrl}
+                      alt={`Photo preview ${i + 1}`}
+                      className="w-full h-full object-contain bg-white"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-pink-50/40 text-pink-300 text-xs font-cute">
+                      Photo {i + 1}
+                    </div>
+                  )}
+                  <div className="absolute top-1 left-1">
+                    <span className="badge badge-pink text-[9px] py-0 px-1 font-bold">
+                      #{i + 1}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      )}
-
-      {/* Controls */}
-      <div className="flex items-center gap-6">
-        {/* Flip */}
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={flipCamera}
-          disabled={isCapturing}
-          className="btn-outline px-4 py-2 text-sm"
-        >
-          <FlipHorizontal className="w-4 h-4" />
-          Flip
-        </motion.button>
-
-        {/* Shutter */}
-        <div className="relative">
-          {!isCapturing && isReady && (
-            <>
-              <motion.div
-                className="absolute inset-0 rounded-full border-2 border-pink-300"
-                animate={{ scale: [1, 1.5], opacity: [0.7, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity, ease: 'easeOut' }}
-              />
-              <motion.div
-                className="absolute inset-0 rounded-full border-2 border-purple-300"
-                animate={{ scale: [1, 1.9], opacity: [0.4, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity, ease: 'easeOut', delay: 0.5 }}
-              />
-            </>
-          )}
-          <motion.button
-            whileHover={isCapturing ? {} : { scale: 1.08 }}
-            whileTap={isCapturing ? {} : { scale: 0.92 }}
-            onClick={runCountdownAndCapture}
-            disabled={isCapturing || !isReady || sessionDone}
-            className="shutter-btn z-10 relative"
-          >
-            <Camera className="w-7 h-7 text-white" />
-          </motion.button>
-        </div>
-
-        {/* Cancel */}
-        <button className="btn-ghost text-xs" onClick={onCancel}>Cancel</button>
       </div>
     </div>
   );

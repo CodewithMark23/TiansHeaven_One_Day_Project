@@ -32,7 +32,7 @@ export function getFilterCSS(filter: FilterType): string {
 
 /**
  * Captures a frame from a video element with optional mirror.
- * Crops to 3:4 portrait ratio and applies CSS filter via canvas.
+ * Keeps standard 4:3 landscape ratio and applies CSS filter via canvas.
  */
 export function captureFrame(
   videoEl: HTMLVideoElement,
@@ -43,8 +43,8 @@ export function captureFrame(
   const vw = videoEl.videoWidth  || videoEl.offsetWidth  || 640;
   const vh = videoEl.videoHeight || videoEl.offsetHeight || 480;
 
-  // Crop to 3:4 portrait
-  const targetRatio = 3 / 4;
+  // 4:3 landscape target ratio
+  const targetRatio = 4 / 3;
   let srcX = 0, srcY = 0, srcW = vw, srcH = vh;
   if (vw / vh > targetRatio) {
     srcW = vh * targetRatio;
@@ -54,7 +54,7 @@ export function captureFrame(
     srcY = (vh - srcH) / 2;
   }
 
-  const outW = 480, outH = 640;
+  const outW = 640, outH = 480;
   canvas.width  = outW;
   canvas.height = outH;
   const ctx = canvas.getContext('2d')!;
