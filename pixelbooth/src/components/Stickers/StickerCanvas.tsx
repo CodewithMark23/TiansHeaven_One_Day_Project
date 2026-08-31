@@ -14,6 +14,7 @@ export interface StickerCanvasRef {
 const StickerCanvas = forwardRef<StickerCanvasRef, StickerCanvasProps>(
   ({ stickers, onChange, containerRef }, ref) => {
     const [selectedId, setSelectedId] = useState<string | null>(null);
+    const overlayRef = useRef<HTMLDivElement | null>(null);
 
     useImperativeHandle(ref, () => ({
       deselect: () => setSelectedId(null),
@@ -36,7 +37,7 @@ const StickerCanvas = forwardRef<StickerCanvasRef, StickerCanvasProps>(
       origRot: number;
     } | null>(null);
 
-    const getContainerRect = () => containerRef.current?.getBoundingClientRect() ?? new DOMRect();
+    const getContainerRect = () => overlayRef.current?.getBoundingClientRect() ?? new DOMRect();
 
     // ── Drag ──────────────────────────────────────────────────────────────────
     const handleDragStart = (e: React.PointerEvent, id: string) => {
@@ -64,10 +65,10 @@ const StickerCanvas = forwardRef<StickerCanvasRef, StickerCanvasProps>(
           stickers.map((s) =>
             s.id === dragState.current!.stickerId
               ? {
-                  ...s,
-                  x: Math.max(0, Math.min(100, dragState.current!.origX + dx)),
-                  y: Math.max(0, Math.min(100, dragState.current!.origY + dy)),
-                }
+                ...s,
+                x: Math.max(0, Math.min(100, dragState.current!.origX + dx)),
+                y: Math.max(0, Math.min(100, dragState.current!.origY + dy)),
+              }
               : s
           )
         );
@@ -137,6 +138,7 @@ const StickerCanvas = forwardRef<StickerCanvasRef, StickerCanvasProps>(
 
     return (
       <div
+        ref={overlayRef}
         className="sticker-overlay-container interactive"
         onClick={deselect}
         onPointerMove={(e) => {

@@ -86,11 +86,31 @@ function drawPhotoToCanvas(
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      // Clip to rounded rect
       ctx.save();
       roundedRect(ctx, x, y, w, h, 8);
       ctx.clip();
-      ctx.drawImage(img, x, y, w, h);
+
+      ctx.fillStyle = '#000';
+      ctx.fillRect(x, y, w, h);
+
+      const boxRatio = w / h;
+      const imgRatio = img.naturalWidth / img.naturalHeight;
+
+      let drawW = w;
+      let drawH = h;
+
+      if (imgRatio > boxRatio) {
+        drawW = w;
+        drawH = w / imgRatio;
+      } else {
+        drawH = h;
+        drawW = h * imgRatio;
+      }
+
+      const drawX = x + (w - drawW) / 2;
+      const drawY = y + (h - drawH) / 2;
+
+      ctx.drawImage(img, drawX, drawY, drawW, drawH);
       ctx.restore();
       resolve();
     };

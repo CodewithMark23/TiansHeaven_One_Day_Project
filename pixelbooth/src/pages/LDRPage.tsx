@@ -39,7 +39,7 @@ export default function LDRPage() {
             LDR Booth
           </h1>
           <p className="font-cute text-sm mb-6 leading-relaxed" style={{ color: '#B8A0A8' }}>
-            YOU ♡ ME — take photos together with your partner, no matter the distance 🌍💕
+            YOU ♡ ME — take photos together with your partner, no matter the distance 🌍
           </p>
 
           <div className="flex flex-col gap-3">
@@ -57,7 +57,7 @@ export default function LDRPage() {
               whileHover={{ scale: 1.03, y: -2 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => navigate('/ldr/join')}
-              className="btn-scrapbook-blue w-full justify-center font-body font-bold text-sm py-3 px-6 rounded-full border border-sky-200"
+              className="btn-scrapbook-blue w-full justify-center"
               id="btn-join-booth"
             >
               <Users className="w-4 h-4" />

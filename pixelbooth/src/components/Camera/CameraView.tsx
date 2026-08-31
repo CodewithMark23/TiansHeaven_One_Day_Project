@@ -29,22 +29,22 @@ export default function CameraView({
   if (error) {
     return (
       <div
-        className={`flex flex-col items-center justify-center bg-pink-50 ${className}`}
+        className={`flex flex-col items-center justify-center bg-pink-50 overflow-hidden ${className}`}
         style={{ borderRadius: '1.5rem' }}
       >
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="flex flex-col items-center gap-4 p-8 text-center"
+          className="flex flex-col items-center gap-2.5 p-4 text-center max-w-full"
         >
-          <div className="w-16 h-16 rounded-full bg-pink-100 flex items-center justify-center">
-            <AlertCircle className="w-8 h-8 text-pink-400" />
+          <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center shrink-0">
+            <AlertCircle className="w-5 h-5 text-pink-400" />
           </div>
-          <div>
-            <p className="font-semibold text-gray-700 mb-1">Camera Unavailable</p>
-            <p className="text-sm text-gray-500">{error}</p>
+          <div className="max-w-full">
+            <p className="font-semibold text-gray-700 mb-0.5 text-sm">Camera Unavailable</p>
+            <p className="text-xs text-gray-500 leading-snug line-clamp-3">{error}</p>
           </div>
-          <button className="btn-secondary text-sm" onClick={start}>
+          <button className="btn-scrapbook text-xs py-1.5 px-4" onClick={start}>
             Try Again
           </button>
         </motion.div>

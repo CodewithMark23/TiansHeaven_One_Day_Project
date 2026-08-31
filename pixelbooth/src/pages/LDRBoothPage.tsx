@@ -434,9 +434,8 @@ export default function LDRBoothPage() {
       </motion.header>
 
       {/* Main Booth Content */}
-      <div className="container-snappy py-4 flex-1 flex flex-col justify-center">
-        <div className="flex flex-col lg:flex-row gap-6 items-start justify-center max-w-5xl mx-auto w-full">
-
+      <div className="container-snappy mt-10 pb-4 flex-1 flex flex-col">
+        <div className="flex flex-col lg:flex-row gap-6 items-start justify-center max-w-5xl mx-auto w-full" style={{ marginTop: '48px', marginBottom: '48px' }}>
           {/* Left: Dual Camera Experience */}
           <div className="flex-1 w-full max-w-xl flex flex-col gap-4">
 
@@ -447,7 +446,7 @@ export default function LDRBoothPage() {
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between px-1">
                   <span className="text-xs font-bold text-pink-500 uppercase tracking-wider font-cute">
-                    📷 You ({userName})
+                    You ({userName})
                   </span>
                   {isMyReady ? (
                     <span className="badge badge-mint text-[10px] py-0.5">Ready ♡</span>
@@ -475,7 +474,7 @@ export default function LDRBoothPage() {
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between px-1">
                   <span className="text-xs font-bold text-purple-500 uppercase tracking-wider flex items-center gap-1 font-cute">
-                    💕 {partnerName}
+                    {partnerName}
                     {remoteStream && webrtcState === 'connected' ? (
                       <Video className="w-3 h-3 text-green-500" />
                     ) : (
@@ -579,26 +578,25 @@ export default function LDRBoothPage() {
                   whileTap={{ scale: 0.97 }}
                   onClick={handleToggleReady}
                   disabled={!camera.isReady || isStripComplete || displayCountdown !== null}
-                  className={`btn-scrapbook py-2.5 px-5 text-sm cursor-pointer ${
-                    isMyReady ? 'btn-scrapbook-mint' : ''
-                  }`}
+                  className={`btn-scrapbook py-2.5 px-5 text-sm cursor-pointer ${isMyReady ? 'btn-scrapbook-mint' : ''
+                    }`}
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   {isStripComplete
                     ? `All ${maxPhotos} photos taken! ♡`
                     : isMyReady
-                    ? '✓ You are Ready!'
-                    : "I'm Ready ♡"}
+                      ? '✓ You are Ready!'
+                      : "I'm Ready ♡"}
                 </motion.button>
 
                 <span className="text-xs text-gray-500 font-cute">
                   {isStripComplete
                     ? 'Complete! View or share your strip on the right ✨'
                     : isPartnerReady && isMyReady
-                    ? '🌸 Both ready! Capturing…'
-                    : isPartnerReady
-                    ? '🌸 Partner is ready! Click ready to snap together.'
-                    : 'Click Ready when posed.'}
+                      ? '🌸 Both ready! Capturing…'
+                      : isPartnerReady
+                        ? '🌸 Partner is ready! Click ready to snap together.'
+                        : 'Click Ready when posed.'}
                 </span>
               </div>
 
@@ -616,19 +614,18 @@ export default function LDRBoothPage() {
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className={`py-1.5 px-2 text-xs font-bold rounded-lg transition-all capitalize font-cute cursor-pointer ${
-                      activeTab === tab
-                        ? 'bg-gradient-to-r from-pink-400 to-purple-400 text-white shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
+                    className={`py-1.5 px-2 text-xs font-bold rounded-lg transition-all capitalize font-cute cursor-pointer ${activeTab === tab
+                      ? 'bg-gradient-to-r from-pink-400 to-purple-400 text-white shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                      }`}
                   >
                     {tab === 'filters'
                       ? '🎨 Filters'
                       : tab === 'layout'
-                      ? '🖼️ Layout'
-                      : tab === 'countdown'
-                      ? '⏱️ Timer'
-                      : '✨ Stickers'}
+                        ? '🖼️ Layout'
+                        : tab === 'countdown'
+                          ? '⏱️ Timer'
+                          : '✨ Stickers'}
                   </button>
                 ))}
               </div>
@@ -690,11 +687,10 @@ export default function LDRBoothPage() {
                           key={s.slotNumber}
                           onClick={() => handleRetakeSlot(s.slotNumber)}
                           disabled={!hasPhoto || displayCountdown !== null}
-                          className={`text-[10px] py-1 px-1 rounded-lg border flex items-center justify-center gap-0.5 transition-all ${
-                            hasPhoto
-                              ? 'border-pink-300 bg-pink-50 text-pink-600 hover:bg-pink-100'
-                              : 'border-gray-200 text-gray-300 opacity-50 cursor-not-allowed'
-                          }`}
+                          className={`text-[10px] py-1 px-1 rounded-lg border flex items-center justify-center gap-0.5 transition-all ${hasPhoto
+                            ? 'border-pink-300 bg-pink-50 text-pink-600 hover:bg-pink-100'
+                            : 'border-gray-200 text-gray-300 opacity-50 cursor-not-allowed'
+                            }`}
                           title={hasPhoto ? `Retake Slot #${s.slotNumber}` : `Slot #${s.slotNumber} empty`}
                         >
                           <RotateCcw className="w-2.5 h-2.5" />

@@ -363,29 +363,84 @@ body {
 
 /* Mint variant */
 .btn-scrapbook-mint {
-  background: linear-gradient(135deg, #D8F5D2 0%, #C9EFC8 100%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.8rem 2rem;
+  background: linear-gradient(135deg, #D8F5D2 0%, #E6F9E3 50%, #C9EFC8 100%);
   color: #4A8C4A;
-  border-color: rgba(201, 239, 200, 0.8);
-  box-shadow: 0 3px 14px rgba(216, 245, 210, 0.45);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.9375rem;
+  border-radius: 9999px;
+  border: 1.5px solid rgba(201, 239, 200, 0.8);
+  cursor: pointer;
+  transition: all 0.22s ease;
+  box-shadow:
+    0 3px 14px rgba(216, 245, 210, 0.45),
+    0 1px 0 rgba(255, 255, 255, 0.8) inset;
+  text-decoration: none;
+  letter-spacing: 0.01em;
+  position: relative;
 }
 
 .btn-scrapbook-mint:hover {
-  background: linear-gradient(135deg, #C9EFC8 0%, #D8F5D2 100%);
+  transform: translateY(-3px) rotate(-0.5deg);
   box-shadow: 0 6px 22px rgba(216, 245, 210, 0.55);
+  background: linear-gradient(135deg, #C9EFC8 0%, #D8F5D2 50%, #E6F9E3 100%);
   color: #3D7A3D;
+}
+
+.btn-scrapbook-mint:active {
+  transform: translateY(0) rotate(0);
+}
+
+.btn-scrapbook-mint:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* Blue variant */
 .btn-scrapbook-blue {
-  background: linear-gradient(135deg, #DDF5F7 0%, #C8EEF2 100%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.8rem 2rem;
+  background: linear-gradient(135deg, #DDF5F7 0%, #ECFAFB 50%, #C8EEF2 100%);
   color: #4A7F90;
-  border-color: rgba(200, 238, 242, 0.8);
-  box-shadow: 0 3px 14px rgba(221, 245, 247, 0.45);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.9375rem;
+  border-radius: 9999px;
+  border: 1.5px solid rgba(200, 238, 242, 0.8);
+  cursor: pointer;
+  transition: all 0.22s ease;
+  box-shadow:
+    0 3px 14px rgba(221, 245, 247, 0.45),
+    0 1px 0 rgba(255, 255, 255, 0.8) inset;
+  text-decoration: none;
+  letter-spacing: 0.01em;
+  position: relative;
 }
 
 .btn-scrapbook-blue:hover {
   transform: translateY(-3px) rotate(-0.5deg);
   box-shadow: 0 6px 22px rgba(221, 245, 247, 0.55);
+  background: linear-gradient(135deg, #C8EEF2 0%, #DDF5F7 50%, #ECFAFB 100%);
+  color: #3A6B7A;
+}
+
+.btn-scrapbook-blue:active {
+  transform: translateY(0) rotate(0);
+}
+
+.btn-scrapbook-blue:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* Alias for backward compat */
