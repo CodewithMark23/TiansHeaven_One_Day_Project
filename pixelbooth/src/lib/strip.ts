@@ -1,4 +1,4 @@
-import type { CapturedPhoto, StripOptions } from '../types';
+import type { CapturedPhoto, StripOptions, StickerItem } from '../types';
 
 const STRIP_WIDTH = 520;
 const PHOTO_WIDTH = 480;
@@ -21,7 +21,8 @@ export function calcStripHeight(photoCount = 4): number {
  */
 export async function buildStrip(
   photos: CapturedPhoto[],
-  options: StripOptions
+  options: StripOptions,
+  stickers: StickerItem[] = []
 ): Promise<HTMLCanvasElement> {
   const canvas = document.createElement('canvas');
   const stripH = calcStripHeight(photos.length);
@@ -43,6 +44,12 @@ export async function buildStrip(
     const y = PADDING + i * (PHOTO_HEIGHT + GAP);
 
     await drawPhotoToCanvas(ctx, photo.dataUrl, innerX, y, PHOTO_WIDTH, PHOTO_HEIGHT);
+  }
+
+  // Draw stickers on top of the whole photo area
+  const photoAreaHeight = photos.length * PHOTO_HEIGHT + (photos.length - 1) * GAP;
+  for (const sticker of stickers) {
+    await drawStickerToCanvas(ctx, sticker, innerX, PADDING, PHOTO_WIDTH, photoAreaHeight);
   }
 
   // Footer text
@@ -116,6 +123,51 @@ function drawPhotoToCanvas(
     };
     img.onerror = reject;
     img.src = dataUrl;
+  });
+}
+
+/**
+ * Draws a single sticker (emoji or uploaded image) onto the canvas.
+ * sticker.x / sticker.y are percentages relative to the photo area (areaX/areaY/areaW/areaH).
+ */
+function drawStickerToCanvas(
+  ctx: CanvasRenderingContext2D,
+  sticker: StickerItem,
+  areaX: number,
+  areaY: number,
+  areaW: number,
+  areaH: number
+): Promise<void> {
+  return new Promise((resolve) => {
+    const cx = areaX + (sticker.x / 100) * areaW;
+    const cy = areaY + (sticker.y / 100) * areaH;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate((sticker.rotation * Math.PI) / 180);
+
+    if (sticker.type === 'emoji') {
+      const fontSize = Math.round(36 * sticker.scale * (areaW / 480));
+      ctx.font = `${fontSize}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(sticker.content, 0, 0);
+      ctx.restore();
+      resolve();
+    } else {
+      const img = new Image();
+      img.onload = () => {
+        const size = Math.round(65 * sticker.scale * (areaW / 480));
+        ctx.drawImage(img, -size / 2, -size / 2, size, size);
+        ctx.restore();
+        resolve();
+      };
+      img.onerror = () => {
+        ctx.restore();
+        resolve();
+      };
+      img.src = sticker.content;
+    }
   });
 }
 

@@ -293,7 +293,7 @@ export function useLDRBooth(): UseLDRBoothReturn {
         .on('presence', { event: 'sync' }, () => {
           const state = channel.presenceState();
           const presences = Object.values(state).flat() as any[];
-          const hasPartner = presences.some((p) => p.user !== currentRole) || presences.length > 1;
+          const hasPartner = presences.some((p) => p.user !== currentRole);
           setIsPartnerOnline(hasPartner);
 
           const partner = presences.find((p) => p.user !== currentRole);
@@ -482,12 +482,18 @@ export function useLDRBooth(): UseLDRBoothReturn {
         }
       }
 
+      // GUEST joining a code that doesn't exist in the DB -> fail, don't fabricate
+      if (!foundSession && currentRole === 'guest') {
+        setError('Booth not found. Check the code and try again.');
+        return false;
+      }
+
+      // HOST reconnecting without a DB match (e.g. Supabase not configured) -> local fallback only for host
       if (!foundSession) {
         foundSession = {
           id: nanoid(),
           code: normalizedCode,
-          hostName: currentRole === 'host' ? currentUserName : 'Partner',
-          guestName: currentRole === 'guest' ? currentUserName : undefined,
+          hostName: currentUserName,
           status: 'active',
           photos: [],
           createdAt: new Date().toISOString(),

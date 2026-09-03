@@ -14,7 +14,7 @@ import CaptureButton from '../components/Camera/CaptureButton';
 import CountdownTimer from '../components/UI/CountdownTimer';
 import FilterSelector from '../components/Setup/FilterSelector';
 import CountdownSelector from '../components/Setup/CountdownSelector';
-import PhotoLayoutSelector from '../components/Setup/PhotoLayoutSelector';
+import PhotoLayoutArrowSelector from '../components/PhotoStrip/PhotoLayoutArrowSelector';
 import StickerPicker from '../components/UI/StickerPicker';
 import PhotoStrip from '../components/PhotoStrip/PhotoStrip';
 import QRCodeCard from '../components/QR/QRCodeCard';
@@ -112,13 +112,14 @@ export default function LDRBoothPage() {
   const [countdown, setCountdown] = useState<CountdownDuration>(3);
   const [layoutId, setLayoutId] = useState<PhotoLayoutId>('4-vertical');
   const [photoCount, setPhotoCount] = useState<number>(4);
-  const [, setStickers] = useState<Sticker[]>([]);
-  const [activeTab, setActiveTab] = useState<'filters' | 'layout' | 'countdown' | 'stickers'>('filters');
+  const [stickers, setStickers] = useState<Sticker[]>([]);
+  const [activeTab, setActiveTab] = useState<'filters' | 'countdown' | 'stickers'>('filters');
   const [isMyReady, setIsMyReady] = useState(false);
   const [displayCountdown, setDisplayCountdown] = useState<number | null>(null);
   const [isFlashing, setIsFlashing] = useState(false);
   const [compositePreviews, setCompositePreviews] = useState<(string | null)[]>([null, null, null, null]);
 
+  // Add back, right where handleLayoutChange used to be (near layoutId/photoCount state):
   const handleLayoutChange = (layout: PhotoLayoutOption) => {
     setLayoutId(layout.id);
     setPhotoCount(layout.photoCount);
@@ -134,6 +135,9 @@ export default function LDRBoothPage() {
     if (code && nameEntered && userName) {
       connectToBooth(code, role, userName);
     }
+    return () => {
+      leaveBooth();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, role, nameEntered, userName]);
 
@@ -255,11 +259,11 @@ export default function LDRBoothPage() {
     }
   };
 
-  const handleAddSticker = (emoji: string) => {
+  const handleAddSticker = (content: string, type: 'emoji' | 'image' = 'emoji') => {
     const newSticker: Sticker = {
       id: nanoid(),
-      type: 'emoji',
-      content: emoji,
+      type,
+      content,
       x: 30 + Math.random() * 40,
       y: 30 + Math.random() * 40,
       scale: 1,
@@ -274,6 +278,7 @@ export default function LDRBoothPage() {
     sendReadyState(false);
     setMemoryUrl('');
     setShowQRModal(false);
+    setStickers([]);
   };
 
   const handleRetakeSlot = async (slotNum: number) => {
@@ -382,10 +387,10 @@ export default function LDRBoothPage() {
 
         <div className="flex flex-col items-center">
           <div className="flex items-center gap-1.5">
-            <span className="font-display text-xl text-purple-600">
-              💕 LDR Booth
+            <span className="font-display text-xl" style={{ color: '#fec4d7ff' }}>
+              LDR Booth
             </span>
-            <span className="badge badge-lavender text-xs font-hand font-bold">
+            <span className="badge badge-mint text-xs font-bold" style={{ fontFamily: 'monospace', letterSpacing: '0.08em' }}>
               Code: {code}
             </span>
           </div>
@@ -455,7 +460,7 @@ export default function LDRBoothPage() {
                   )}
                 </div>
 
-                <div className="relative camera-frame" style={{ aspectRatio: '4/3' }}>
+                <div className="relative camera-frame" style={{ aspectRatio: '3/4' }}>
                   <CameraView
                     camera={camera}
                     filter={filter}
@@ -473,7 +478,7 @@ export default function LDRBoothPage() {
               {/* PARTNER'S CAMERA (WebRTC Live Stream) */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-bold text-purple-500 uppercase tracking-wider flex items-center gap-1 font-cute">
+                  <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1 font-cute" style={{ color: '#17a358ff' }}>
                     {partnerName}
                     {remoteStream && webrtcState === 'connected' ? (
                       <Video className="w-3 h-3 text-green-500" />
@@ -492,7 +497,7 @@ export default function LDRBoothPage() {
 
                 <div
                   className="relative camera-frame flex flex-col items-center justify-center text-center p-0 bg-black/90 overflow-hidden"
-                  style={{ aspectRatio: '4/3' }}
+                  style={{ aspectRatio: '3/4' }}
                 >
                   {partnerFlashing && (
                     <div className="absolute inset-0 bg-white z-30 animate-pulse" />
@@ -534,8 +539,8 @@ export default function LDRBoothPage() {
                           <motion.div
                             animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
                             transition={{ duration: 2.5, repeat: Infinity }}
-                            className="w-16 h-16 rounded-full bg-gradient-to-tr from-pink-300 to-purple-300 flex items-center justify-center text-3xl shadow-md border-2 border-white"
-                          >
+                            className="w-16 h-16 rounded-full flex items-center justify-center text-3xl shadow-md border-2 border-white"
+                            style={{ background: 'linear-gradient(135deg, #F7C8D5, #9CD4B8)' }}                          >
                             🌸
                           </motion.div>
                           <div>
@@ -554,7 +559,7 @@ export default function LDRBoothPage() {
                         <p className="text-xs font-medium text-purple-300 font-cute">
                           Waiting for {partnerName} to join:
                         </p>
-                        <span className="font-display text-lg text-pink-400 tracking-wider">
+                        <span className="text-lg font-bold text-pink-400 tracking-wider" style={{ fontFamily: 'monospace' }}>
                           {code}
                         </span>
                       </div>
@@ -609,36 +614,37 @@ export default function LDRBoothPage() {
 
             {/* Customization & Setup Tabs */}
             <div className="card-stationery p-5">
-              <div className="grid grid-cols-4 gap-1 rounded-xl overflow-hidden mb-4 bg-pink-100/50 p-1">
-                {(['filters', 'layout', 'countdown', 'stickers'] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`py-1.5 px-2 text-xs font-bold rounded-lg transition-all capitalize font-cute cursor-pointer ${activeTab === tab
-                      ? 'bg-gradient-to-r from-pink-400 to-purple-400 text-white shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                      }`}
-                  >
-                    {tab === 'filters'
-                      ? '🎨 Filters'
-                      : tab === 'layout'
-                        ? '🖼️ Layout'
+              <div className="flex gap-2 mb-4">
+                {(['filters', 'countdown', 'stickers'] as const).map((tab) => {
+                  const isLocked = tab === 'stickers' && !isStripComplete;
+                  const isActive = activeTab === tab;
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`flex-1 !py-1 !px-2 !text-xs capitalize font-cute ${isActive
+                        ? 'btn-scrapbook-mint'
+                        : isLocked
+                          ? 'btn-mint-locked'
+                          : 'btn-mint-outline'
+                        }`}
+                    >
+                      {tab === 'filters'
+                        ? '🎨 Filters'
                         : tab === 'countdown'
                           ? '⏱️ Timer'
-                          : '✨ Stickers'}
-                  </button>
-                ))}
+                          : isLocked
+                            ? '🔒 Stickers'
+                            : '✨ Stickers'}
+                    </button>
+                  );
+                })}
               </div>
 
               <AnimatePresence mode="wait">
                 {activeTab === 'filters' && (
                   <motion.div key="filters" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                     <FilterSelector selected={filter} onChange={setFilter} />
-                  </motion.div>
-                )}
-                {activeTab === 'layout' && (
-                  <motion.div key="layout" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                    <PhotoLayoutSelector selectedId={layoutId} onChange={handleLayoutChange} />
                   </motion.div>
                 )}
                 {activeTab === 'countdown' && (
@@ -648,7 +654,19 @@ export default function LDRBoothPage() {
                 )}
                 {activeTab === 'stickers' && (
                   <motion.div key="stickers" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                    <StickerPicker onStickerAdd={handleAddSticker} />
+                    {isStripComplete ? (
+                      <StickerPicker onStickerAdd={handleAddSticker} />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+                        <span className="text-3xl">🔒</span>
+                        <p className="text-sm font-semibold text-gray-500 font-cute">
+                          Stickers unlock once your strip is complete
+                        </p>
+                        <p className="text-xs text-gray-400 font-cute">
+                          Finish all {maxPhotos} photos to decorate your strip ♡
+                        </p>
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -661,16 +679,24 @@ export default function LDRBoothPage() {
               <div className="flex items-center gap-2 mb-3">
                 <Heart className="w-4 h-4 text-pink-400 fill-pink-200" />
                 <span className="text-sm font-semibold text-gray-700 font-cute">Side-by-Side Strip</span>
-                <span className="badge badge-lavender text-xs">{completedCount}/{maxPhotos}</span>
+                <span className="badge badge-mint text-xs">{completedCount}/{maxPhotos}</span>
               </div>
 
               {/* Side-by-Side Dual Composite Strip Preview */}
+              // Replace:
+              <PhotoLayoutArrowSelector
+                selectedId={layoutId}
+                onChange={handleLayoutChange}
+                disabled={completedCount > 0}
+              />
               <PhotoStrip
                 photos={stripPhotos}
                 userName={`${userName} & ${partnerName}`}
                 showDownload={isStripComplete}
                 layoutId={layoutId}
                 photoCount={maxPhotos}
+                stickers={stickers}
+                onStickersChange={setStickers}
               />
 
               {/* Per-Slot Retake Buttons */}

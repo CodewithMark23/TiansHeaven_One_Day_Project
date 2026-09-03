@@ -13,6 +13,7 @@ export interface UseCameraReturn {
 
 export function useCamera(): UseCameraReturn {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,10 +21,12 @@ export function useCamera(): UseCameraReturn {
 
   const start = useCallback(async () => {
     if (!videoRef.current) return;
+    if (streamRef.current) stopCamera(streamRef.current);
     setIsLoading(true);
     setError(null);
     try {
       const s = await startCamera(videoRef.current);
+      streamRef.current = s;
       setStream(s);
       setIsReady(true);
     } catch (err) {
@@ -40,17 +43,17 @@ export function useCamera(): UseCameraReturn {
   }, []);
 
   const stop = useCallback(() => {
-    stopCamera(stream);
+    stopCamera(streamRef.current);
+    streamRef.current = null;
     setStream(null);
     setIsReady(false);
-  }, [stream]);
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stopCamera(stream);
+      stopCamera(streamRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return { videoRef, stream, isLoading, error, start, stop, isReady };

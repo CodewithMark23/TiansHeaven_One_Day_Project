@@ -11,6 +11,7 @@ export default function LDRJoinPage() {
   const [guestName, setGuestName] = useState('');
   const [isJoining, setIsJoining] = useState(false);
 
+
   const handleCodeChange = (val: string) => {
     setCode(val.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6));
   };
@@ -46,16 +47,36 @@ export default function LDRJoinPage() {
             maxLength={20}
             id="input-guest-name"
           />
-          <input
-            type="text"
-            placeholder="BOOTH CODE"
-            className="cute-input text-center font-hand font-bold tracking-[0.35em] text-xl"
-            style={{ color: '#D98FA8' }}
-            value={code}
-            onChange={(e) => handleCodeChange(e.target.value)}
-            maxLength={6}
-            id="input-booth-code"
-          />
+
+          {/* Per-character code boxes */}
+          <div className="relative flex justify-center gap-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="w-10 h-12 rounded-md border-2 flex items-center justify-center font-bold text-xl"
+                style={{
+                  fontFamily: 'monospace',
+                  borderColor: i < code.length ? '#D98FA8' : '#E8D5DC',
+                  color: '#D98FA8',
+                  backgroundColor: '#fff',
+                }}
+              >
+                {code[i] ?? ''}
+              </div>
+            ))}
+
+            {/* Real input overlaid on top — handles all typing/focus natively */}
+            <input
+              type="text"
+              value={code}
+              onChange={(e) => handleCodeChange(e.target.value)}
+              maxLength={6}
+              id="input-booth-code"
+              autoFocus
+              className="absolute inset-0 w-full h-full opacity-0 text-transparent caret-transparent"
+              style={{ letterSpacing: '0.6em' }}
+            />
+          </div>
         </div>
 
         {error && (

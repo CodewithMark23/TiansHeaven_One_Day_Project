@@ -26,37 +26,49 @@ export default function CameraView({
 
   const filterCSS = getFilterCSS(filter);
 
-  if (error) {
-    return (
-      <div
-        className={`flex flex-col items-center justify-center bg-pink-50 overflow-hidden ${className}`}
-        style={{ borderRadius: '1.5rem' }}
-      >
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="flex flex-col items-center gap-2.5 p-4 text-center max-w-full"
-        >
-          <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center shrink-0">
-            <AlertCircle className="w-5 h-5 text-pink-400" />
-          </div>
-          <div className="max-w-full">
-            <p className="font-semibold text-gray-700 mb-0.5 text-sm">Camera Unavailable</p>
-            <p className="text-xs text-gray-500 leading-snug line-clamp-3">{error}</p>
-          </div>
-          <button className="btn-scrapbook text-xs py-1.5 px-4" onClick={start}>
-            Try Again
-          </button>
-        </motion.div>
-      </div>
-    );
-  }
-
   return (
     <div className={`relative overflow-hidden ${className}`} style={{ borderRadius: '1.5rem' }}>
+      {/* Video element — ALWAYS mounted so videoRef stays valid */}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        className="camera-video w-full h-full object-cover"
+        style={{
+          filter: filterCSS,
+          display: isReady && !error ? 'block' : 'none',
+          transform: 'scaleX(-1)',
+          borderRadius: '1.5rem',
+        }}
+      />
+
+      {/* Error overlay */}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2.5 p-4 text-center bg-pink-50"
+            style={{ borderRadius: '1.5rem' }}
+          >
+            <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center shrink-0">
+              <AlertCircle className="w-5 h-5 text-pink-400" />
+            </div>
+            <div className="max-w-full">
+              <p className="font-semibold text-gray-700 mb-0.5 text-sm">Camera Unavailable</p>
+              <p className="text-xs text-gray-500 leading-snug line-clamp-3">{error}</p>
+            </div>
+            <button className="btn-scrapbook text-xs py-1.5 px-4" onClick={start}>
+              Try Again
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Loading overlay */}
       <AnimatePresence>
-        {isLoading && (
+        {isLoading && !error && (
           <motion.div
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -80,21 +92,6 @@ export default function CameraView({
         </div>
       )}
 
-      {/* Video element */}
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        className="camera-video w-full h-full object-cover"
-        style={{
-          filter: filterCSS,
-          display: isReady ? 'block' : 'none',
-          transform: 'scaleX(-1)',
-          borderRadius: '1.5rem',
-        }}
-      />
-
       {/* Shutter flash */}
       <AnimatePresence>
         {isFlashing && (
@@ -112,15 +109,12 @@ export default function CameraView({
 
       {/* Decorative corner frame */}
       <div className="absolute inset-0 pointer-events-none" style={{ borderRadius: '1.5rem' }}>
-        {/* Top-left */}
         <div className="absolute top-3 left-3 w-6 h-6 border-t-2 border-l-2 border-white/60 rounded-tl-lg" />
-        {/* Top-right */}
         <div className="absolute top-3 right-3 w-6 h-6 border-t-2 border-r-2 border-white/60 rounded-tr-lg" />
-        {/* Bottom-left */}
         <div className="absolute bottom-3 left-3 w-6 h-6 border-b-2 border-l-2 border-white/60 rounded-bl-lg" />
-        {/* Bottom-right */}
         <div className="absolute bottom-3 right-3 w-6 h-6 border-b-2 border-r-2 border-white/60 rounded-br-lg" />
       </div>
+
     </div>
   );
 }

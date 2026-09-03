@@ -1,9 +1,10 @@
-import { useState, forwardRef, useImperativeHandle } from 'react';
+import { useState, useRef, forwardRef, useImperativeHandle } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { CapturedPhoto, StripOptions, PhotoLayoutId } from '../../types';
+import type { CapturedPhoto, StripOptions, PhotoLayoutId, StickerItem } from '../../types';
 import { STRIP_BORDER_COLORS, PHOTO_LAYOUT_OPTIONS } from '../../types';
 import { buildStrip, downloadStrip } from '../../lib/strip';
 import { Download, Palette } from 'lucide-react';
+import StickerCanvas from '../Stickers/StickerCanvas';
 
 interface PhotoStripProps {
   photos: CapturedPhoto[];
@@ -11,6 +12,8 @@ interface PhotoStripProps {
   showDownload?: boolean;
   layoutId?: PhotoLayoutId;
   photoCount?: number;
+  stickers?: StickerItem[];
+  onStickersChange?: (stickers: StickerItem[]) => void;
 }
 
 export interface PhotoStripRef {
@@ -18,17 +21,29 @@ export interface PhotoStripRef {
 }
 
 const PhotoStrip = forwardRef<PhotoStripRef, PhotoStripProps>(
-  ({ photos, userName, showDownload = true, layoutId = '4-vertical', photoCount = 4 }, ref) => {
+  (
+    {
+      photos,
+      userName,
+      showDownload = true,
+      layoutId = '4-vertical',
+      photoCount = 4,
+      stickers = [],
+      onStickersChange,
+    },
+    ref
+  ) => {
     const [borderColor, setBorderColor] = useState(STRIP_BORDER_COLORS[0]);
     const [isExporting, setIsExporting] = useState(false);
     const [showColorPicker, setShowColorPicker] = useState(false);
+    const photoAreaRef = useRef<HTMLDivElement>(null);
 
     const layoutOpt = PHOTO_LAYOUT_OPTIONS.find((l) => l.id === layoutId) || PHOTO_LAYOUT_OPTIONS[0];
 
     const containerWidth =
       layoutOpt.columns === 3 ? 320 :
-      layoutOpt.columns === 2 ? 260 :
-      layoutOpt.id === '1-pose' ? 220 : 160;
+        layoutOpt.columns === 2 ? 260 :
+          layoutOpt.id === '1-pose' ? 220 : 160;
 
     const totalSlots = photoCount || layoutOpt.photoCount;
 
@@ -38,12 +53,12 @@ const PhotoStrip = forwardRef<PhotoStripRef, PhotoStripProps>(
       try {
         const options: StripOptions = {
           borderColor,
-          title: userName ? `✨ ${userName}'s PixelBooth ✨` : '✨ PixelBooth ✨',
+          title: userName ? `✨ ${userName}'s Snappy ✨` : '✨ Snappy ✨',
           date: true,
           layout: 'vertical',
           layoutId,
         };
-        const canvas = await buildStrip(photos, options);
+        const canvas = await buildStrip(photos, options, stickers);
         downloadStrip(canvas, `pixelbooth-${Date.now()}.png`);
       } finally {
         setIsExporting(false);
@@ -66,46 +81,57 @@ const PhotoStrip = forwardRef<PhotoStripRef, PhotoStripProps>(
             width: `${containerWidth}px`,
           }}
         >
-          <div
-            className="grid gap-1.5"
-            style={{
-              gridTemplateColumns: `repeat(${layoutOpt.columns}, minmax(0, 1fr))`,
-            }}
-          >
-            {photos.length === 0 ? (
-              /* Empty slots */
-              Array.from({ length: totalSlots }).map((_, i) => (
-                <div
-                  key={i}
-                  className="w-full rounded"
-                  style={{
-                    aspectRatio: '4/3',
-                    background: 'rgba(255,255,255,0.4)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '1rem',
-                  }}
-                >
-                  <span className="text-white/60 font-bold">{i + 1}</span>
-                </div>
-              ))
-            ) : (
-              photos.map((photo, i) => (
-                <motion.div
-                  key={photo.id || i}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ type: 'spring', delay: i * 0.1 }}
-                >
-                  <img
-                    src={photo.dataUrl}
-                    alt={`Photo ${i + 1}`}
-                    className="strip-photo"
-                    style={{ borderRadius: '4px', aspectRatio: '4/3', objectFit: 'contain', width: '100%', backgroundColor: '#000' }}
-                  />
-                </motion.div>
-              ))
+          <div className="relative" ref={photoAreaRef}>
+            <div
+              className="grid gap-1.5"
+              style={{
+                gridTemplateColumns: `repeat(${layoutOpt.columns}, minmax(0, 1fr))`,
+              }}
+            >
+              {photos.length === 0 ? (
+                /* Empty slots */
+                Array.from({ length: totalSlots }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-full rounded"
+                    style={{
+                      aspectRatio: '4/3',
+                      background: 'rgba(255,255,255,0.4)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '1rem',
+                    }}
+                  >
+                    <span className="text-white/60 font-bold">{i + 1}</span>
+                  </div>
+                ))
+              ) : (
+                photos.map((photo, i) => (
+                  <motion.div
+                    key={photo.id || i}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ type: 'spring', delay: i * 0.1 }}
+                  >
+                    <img
+                      src={photo.dataUrl}
+                      alt={`Photo ${i + 1}`}
+                      className="strip-photo"
+                      style={{ borderRadius: '4px', aspectRatio: '4/3', objectFit: 'contain', width: '100%', backgroundColor: '#000' }}
+                    />
+                  </motion.div>
+                ))
+              )}
+            </div>
+
+            {/* Sticker overlay — only once the strip is finished */}
+            {showDownload && photos.length > 0 && onStickersChange && (
+              <StickerCanvas
+                stickers={stickers}
+                onChange={onStickersChange}
+                containerRef={photoAreaRef}
+              />
             )}
           </div>
 
