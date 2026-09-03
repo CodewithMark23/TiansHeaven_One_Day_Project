@@ -12,7 +12,7 @@ export interface StickerCanvasRef {
 }
 
 const StickerCanvas = forwardRef<StickerCanvasRef, StickerCanvasProps>(
-  ({ stickers, onChange, containerRef }, ref) => {
+  ({ stickers, onChange }, ref) => {
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const overlayRef = useRef<HTMLDivElement | null>(null);
 
